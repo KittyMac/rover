@@ -1,0 +1,34 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "Flynn",
+        "repositoryURL": "https://github.com/KittyMac/Flynn.git",
+        "state": {
+          "branch": "master",
+          "revision": "5f2e3c847528880ace655264f2ac1bb4e276b961",
+          "version": null
+        }
+      },
+      {
+        "package": "Ipecac",
+        "repositoryURL": "https://github.com/KittyMac/Ipecac.git",
+        "state": {
+          "branch": "master",
+          "revision": "d32093cffcd1c23ace9e6d65f93ae817b1bb0d45",
+          "version": null
+        }
+      },
+      {
+        "package": "swift-argument-parser",
+        "repositoryURL": "https://github.com/apple/swift-argument-parser",
+        "state": {
+          "branch": null,
+          "revision": "92646c0cdbaca076c8d3d0207891785b3379cbff",
+          "version": "0.3.1"
+        }
+      }
+    ]
+  },
+  "version": 1
+}
