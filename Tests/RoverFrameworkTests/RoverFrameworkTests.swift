@@ -24,9 +24,9 @@ final class RoverFrameworkTests: XCTestCase {
         
         rover.beRun("create table if not exists people ( id serial primary key, name text not null );", Flynn.any, Rover.ignore)
         
-        rover.beRun("insert into people (name) values ('Rocco');", Flynn.any, Rover.error)
-        rover.beRun("insert into people (name) values ('John');", Flynn.any, Rover.error)
-        rover.beRun("insert into people (name) values ('Jane');", Flynn.any, Rover.error)
+        rover.beRun("insert into people (name) values ($1);", ["Rocco"], Flynn.any, Rover.error)
+        rover.beRun("insert into people (name) values ($1);", ["John"], Flynn.any, Rover.error)
+        rover.beRun("insert into people (name) values ($1);", ["Jane"], Flynn.any, Rover.error)
         
         rover.beRun("select * from people;", Flynn.any) { result in
             var names:[String] = []
