@@ -2,24 +2,52 @@ import Flynn
 import libpq
 
 public final class Rover: Actor {
+    public static func ignore(_ result: Result) {
+
+    }
+
+    public static func warn(_ result: Result) {
+        if let error = result.error {
+            print(error)
+        }
+    }
+
+    public static func error(_ result: Result) {
+        if let error = result.error {
+            fatalError(error)
+        }
+    }
+
     private var connectionInfo = ConnectionInfo()
-    private var connection = OpaquePointer(bitPattern: 0)
+    private var connectionPtr = OpaquePointer(bitPattern: 0)
 
     private var connected: Bool {
-        return PQstatus(connection) == CONNECTION_OK
+        return PQstatus(connectionPtr) == CONNECTION_OK
+    }
+
+    deinit {
+        disconnect()
+    }
+
+    private func disconnect() {
+        if connectionPtr != nil {
+            PQfinish(connectionPtr)
+            connectionPtr = OpaquePointer(bitPattern: 0)
+        }
     }
 
     private func _beConnect(_ info: ConnectionInfo) -> Bool {
         connectionInfo = info
-        connection = PQconnectdb(info.description)
+        connectionPtr = PQconnectdb(info.description)
         return connected
     }
 
     private func _beClose() {
-        if connection != nil {
-            PQfinish(connection)
-            connection = OpaquePointer(bitPattern: 0)
-        }
+        disconnect()
+    }
+
+    private func _beRun(_ statement: String) -> Result {
+        return Result(PQexec(connectionPtr, statement))
     }
 }
 
@@ -41,6 +69,16 @@ extension Rover {
     @discardableResult
     public func beClose() -> Self {
         unsafeSend(_beClose)
+        return self
+    }
+    @discardableResult
+    public func beRun(_ statement: String,
+                      _ sender: Actor,
+                      _ callback: @escaping ((Result) -> Void)) -> Self {
+        unsafeSend {
+            let result = self._beRun(statement)
+            sender.unsafeSend { callback(result) }
+        }
         return self
     }
 
