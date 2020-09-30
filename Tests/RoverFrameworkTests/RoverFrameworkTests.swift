@@ -14,6 +14,8 @@ final class RoverFrameworkTests: XCTestCase {
     }
     
     func testConnection() {
+        let expectation = XCTestExpectation(description: "Perform some actions on the postgres server")
+        
         let rover = Rover()
         
         rover.beConnect(ConnectionInfo(), Flynn.any) {
@@ -35,10 +37,13 @@ final class RoverFrameworkTests: XCTestCase {
                     names.append(name)
                 }
             }
-            
+                        
             XCTAssert(names.joined(separator: ",") == "Rocco,John,Jane")
+            
+            expectation.fulfill()
         }
         
+        wait(for: [expectation], timeout: 10.0)
     }
 
     static var allTests = [
