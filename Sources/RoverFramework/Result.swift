@@ -16,7 +16,7 @@ public final class Result {
     }
 
     public var error: String? {
-        guard let resultPtr = resultPtr else { return nil }
+        guard let resultPtr = resultPtr else { return "Invalid result" }
         if let error = String(validatingUTF8: PQresultErrorMessage(resultPtr)) {
             return error.count == 0 ? nil : error
         }

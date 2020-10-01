@@ -7,17 +7,20 @@ public struct ConnectionInfo: CustomStringConvertible {
     let port: Int?
     let username: String?
     let password: String?
+    let autoReconnect: Bool
 
     public init(database inDatabase: String? = nil,
                 host inHost: String? = nil,
                 port inPort: Int? = nil,
                 username inUsername: String? = nil,
-                password inPassword: String? = nil) {
+                password inPassword: String? = nil,
+                autoReconnect inAutoReconnect: Bool = true) {
         database = inDatabase
         host = inHost
         port = inPort
         username = inUsername
         password = inPassword
+        autoReconnect = inAutoReconnect
     }
 
     public var description: String {

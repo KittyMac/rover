@@ -18,17 +18,17 @@ final class RoverFrameworkTests: XCTestCase {
         
         let rover = Rover()
         
-        rover.beConnect(ConnectionInfo(), Flynn.any) {
-            XCTAssert($0)
+        rover.beConnect(ConnectionInfo(), Flynn.any) { success in
+            XCTAssert(success)
         }
         
         rover.beRun("drop table people", Flynn.any, Rover.ignore)
         
         rover.beRun("create table if not exists people ( id serial primary key, name text not null );", Flynn.any, Rover.ignore)
         
-        rover.beRun("insert into people (name) values ($1);", ["Rocco"], Flynn.any, Rover.error)
-        rover.beRun("insert into people (name) values ($1);", ["John"], Flynn.any, Rover.error)
-        rover.beRun("insert into people (name) values ($1);", ["Jane"], Flynn.any, Rover.error)
+        rover.beRun("insert into people (name) values ($1);", ["Rocco"], Flynn.any, Rover.ignore)
+        rover.beRun("insert into people (name) values ($1);", ["John"], Flynn.any, Rover.ignore)
+        rover.beRun("insert into people (name) values ($1);", ["Jane"], Flynn.any, Rover.ignore)
         
         rover.beRun("select * from people;", Flynn.any) { result in
             var names:[String] = []
@@ -38,7 +38,7 @@ final class RoverFrameworkTests: XCTestCase {
                 }
             }
                         
-            XCTAssert(names.joined(separator: ",") == "Rocco,John,Jane")
+            XCTAssertEqual(names.joined(separator: ","), "Rocco,John,Jane")
             
             expectation.fulfill()
         }

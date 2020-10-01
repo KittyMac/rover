@@ -35,7 +35,7 @@ public final class Rover: Actor {
         }
     }
 
-    private var connectionInfo = ConnectionInfo()
+    private var connectionInfo: ConnectionInfo?
     private var connectionPtr = OpaquePointer(bitPattern: 0)
 
     private var connected: Bool {
@@ -44,6 +44,20 @@ public final class Rover: Actor {
 
     deinit {
         disconnect()
+    }
+
+    public override init() {
+        super.init()
+
+        unsafeCoreAffinity = .preferEfficiency
+
+        Flynn.Timer(timeInterval: 1.0, repeats: true, self) { _ in
+            if let connectionInfo = self.connectionInfo,
+                self.connected == false && connectionInfo.autoReconnect {
+                print("reconnecting to database...")
+                _ = self._beConnect(connectionInfo)
+            }
+        }
     }
 
     private func disconnect() {
