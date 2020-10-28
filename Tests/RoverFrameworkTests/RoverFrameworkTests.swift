@@ -29,6 +29,13 @@ final class RoverFrameworkTests: XCTestCase {
         rover.beRun("insert into people (name) values ($1);", ["Rocco"], Flynn.any, Rover.ignore)
         rover.beRun("insert into people (name) values ($1);", ["John"], Flynn.any, Rover.ignore)
         rover.beRun("insert into people (name) values ($1);", ["Jane"], Flynn.any, Rover.ignore)
+                
+        rover.beRun("select count(*) from people where name = ANY($1);",
+                    [["Rocco", "John", "Mark", "Anthony"]],
+                    Flynn.any) { result in
+            
+            XCTAssertEqual(result.get(int: 0, 0), 2)
+        }
         
         rover.beRun("select * from people;", Flynn.any) { result in
             var names:[String] = []

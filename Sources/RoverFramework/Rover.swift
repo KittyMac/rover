@@ -127,7 +127,11 @@ public final class Rover: Actor {
                 formats[idx] = 1
             default:
                 if let params = params[idx] {
-                    asStrings.append("\(params)")
+                    if let value = params as? [String] {
+                        asStrings.append("{\(value.joined(separator: ","))}")
+                    } else {
+                        asStrings.append("\(params)")
+                    }
                     var valueB = [UInt8](asStrings.last!.utf8)
                     valueB.append(0)
                     temps.append(valueB)
