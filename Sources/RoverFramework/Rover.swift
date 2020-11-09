@@ -2,7 +2,17 @@ import Foundation
 import Flynn
 import libpq
 
-// swiftlint:disable function_body_length
+fileprivate extension String {
+    func asBytes() -> UnsafeMutablePointer<Int8> {
+        let utf8CString = self.utf8CString
+        let count = utf8CString.count
+        let bytes = UnsafeMutablePointer<Int8>.allocate(capacity: count)
+        for (idx, char) in utf8CString.enumerated() {
+            bytes[idx] = char
+        }
+        return bytes
+    }
+}
 
 fileprivate extension Array where Element == UInt8 {
    func getCCPointer() -> UnsafePointer<Int8>? {
@@ -81,72 +91,56 @@ public final class Rover: Actor {
         return Result(PQexec(connectionPtr, statement))
     }
 
-    private func _beRun(_ statement: String, _ params: [Any?]) -> Result {
-        let count = params.count
-        let values = UnsafeMutablePointer<UnsafePointer<Int8>?>.allocate(capacity: count)
-        let types = UnsafeMutablePointer<Oid>.allocate(capacity: count)
-        let lengths = UnsafeMutablePointer<Int32>.allocate(capacity: count)
-        let formats = UnsafeMutablePointer<Int32>.allocate(capacity: count)
+    private func _beRun(_ statement: String, _ params: [Any]) -> Result {
+        var types: [Oid] = []
+        types.reserveCapacity(params.count)
+
+        var formats: [Int32] = []
+        formats.reserveCapacity(params.count)
+
+        var values: [UnsafePointer<Int8>?] = []
+        values.reserveCapacity(params.count)
+
+        var lengths: [Int32] = []
+        lengths.reserveCapacity(params.count)
+
         defer {
-            values.deinitialize(count: count) ; values.deallocate()
-            types.deinitialize(count: count) ; types.deallocate()
-            lengths.deinitialize(count: count) ; lengths.deallocate()
-            formats.deinitialize(count: count) ; formats.deallocate()
-        }
-        var asStrings = [String]()
-        var temps = [[UInt8]]()
-        for idx in 0..<count {
-            switch params[idx] {
-            case let value as String:
-                var valueB = [UInt8](value.utf8)
-                valueB.append(0)
-                temps.append(valueB)
-                values[idx] = temps.last!.getCCPointer()!
-                types[idx] = 0
-                lengths[idx] = 0
-                formats[idx] = 0
-            case let value as [UInt8]:
-                let length = Int32(value.count)
-                values[idx] = value.getCCPointer()!
-                types[idx] = 17
-                lengths[idx] = length
-                formats[idx] = 1
-            case let value as [Int8]:
-                let length = Int32(value.count)
-                values[idx] = value.getPointer()!
-                types[idx] = 17
-                lengths[idx] = length
-                formats[idx] = 1
-            case let value as Data:
-                let valueB = value.map { $0 }
-                let length = Int32(valueB.count)
-                temps.append(valueB)
-                values[idx] = temps.last!.getCCPointer()!
-                types[idx] = 17
-                lengths[idx] = length
-                formats[idx] = 1
-            default:
-                if let params = params[idx] {
-                    if let value = params as? [String] {
-                        asStrings.append("{\(value.joined(separator: ","))}")
-                    } else {
-                        asStrings.append("\(params)")
-                    }
-                    var valueB = [UInt8](asStrings.last!.utf8)
-                    valueB.append(0)
-                    temps.append(valueB)
-                    values[idx] = temps.last!.getCCPointer()!
-                } else {
-                    values[idx] = nil
-                }
-                types[idx] = 0
-                lengths[idx] = 0
-                formats[idx] = 0
+            for value in values {
+                value?.deallocate()
             }
         }
-        return Result(PQexecParams(connectionPtr, statement, Int32(count), nil, values, lengths, formats, Int32(0)))
-    }
 
+        for param in params {
+            switch param {
+            case let value as String:
+                types.append(0)
+                formats.append(0)
+                lengths.append(Int32(0))
+                values.append(value.asBytes())
+            case let value as [String]:
+                types.append(0)
+                formats.append(0)
+                lengths.append(Int32(0))
+                values.append("{\(value.joined(separator: ","))}".asBytes())
+            default:
+                types.append(0)
+                formats.append(0)
+                lengths.append(Int32(0))
+                values.append("\(param)".asBytes())
+            }
+        }
+
+        return Result(PQexecParams(
+            connectionPtr,
+            statement,
+            Int32(params.count),
+            types,
+            values,
+            lengths,
+            formats,
+            Int32(0)
+        ))
+    }
 }
 
 // MARK: - Autogenerated by FlynnLint
@@ -181,7 +175,7 @@ extension Rover {
     }
     @discardableResult
     public func beRun(_ statement: String,
-                      _ params: [Any?],
+                      _ params: [Any],
                       _ sender: Actor,
                       _ callback: @escaping ((Result) -> Void)) -> Self {
         unsafeSend {
