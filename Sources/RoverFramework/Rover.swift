@@ -91,7 +91,7 @@ public final class Rover: Actor {
         return Result(PQexec(connectionPtr, statement))
     }
 
-    private func _beRun(_ statement: String, _ params: [Any]) -> Result {
+    private func _beRun(_ statement: String, _ params: [Any?]) -> Result {
         var types: [Oid] = []
         types.reserveCapacity(params.count)
 
@@ -126,7 +126,11 @@ public final class Rover: Actor {
                 types.append(0)
                 formats.append(0)
                 lengths.append(Int32(0))
-                values.append("\(param)".asBytes())
+                if let param = param {
+                    values.append("\(param)".asBytes())
+                } else {
+                    values.append(nil)
+                }
             }
         }
 
@@ -175,7 +179,7 @@ extension Rover {
     }
     @discardableResult
     public func beRun(_ statement: String,
-                      _ params: [Any],
+                      _ params: [Any?],
                       _ sender: Actor,
                       _ callback: @escaping ((Result) -> Void)) -> Self {
         unsafeSend {

@@ -24,11 +24,11 @@ final class RoverFrameworkTests: XCTestCase {
         
         rover.beRun("drop table people", Flynn.any, Rover.ignore)
         
-        rover.beRun("create table if not exists people ( id serial primary key, name text not null );", Flynn.any, Rover.ignore)
+        rover.beRun("create table if not exists people ( id serial primary key, name text not null, email text );", Flynn.any, Rover.ignore)
         
-        rover.beRun("insert into people (name) values ($1);", ["Rocco"], Flynn.any, Rover.ignore)
-        rover.beRun("insert into people (name) values ($1);", ["John"], Flynn.any, Rover.ignore)
-        rover.beRun("insert into people (name) values ($1);", ["Jane"], Flynn.any, Rover.ignore)
+        rover.beRun("insert into people (name, email) values ($1, $2);", ["Rocco", nil], Flynn.any, Rover.ignore)
+        rover.beRun("insert into people (name, email) values ($1, $2);", ["John", "a@b.com"], Flynn.any, Rover.ignore)
+        rover.beRun("insert into people (name, email) values ($1, $2);", ["Jane", nil], Flynn.any, Rover.ignore)
                 
         rover.beRun("select count(*) from people where name = ANY($1);",
                     [["Rocco", "John", "Mark", "Anthony"]],
