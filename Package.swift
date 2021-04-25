@@ -32,7 +32,7 @@ let package = Package(
         .library( name: "RoverFramework", targets: ["RoverFramework"] ),
     ],
     dependencies: [
-		.package(url: "https://github.com/KittyMac/Flynn.git", .branch("master")),
+		.package(url: "https://github.com/KittyMac/Flynn.git", .branch("cluster_archiver")),
 		.package(url: "https://github.com/KittyMac/Ipecac.git", .branch("master")),
         .package(url: "https://github.com/apple/swift-argument-parser", from: "0.3.0"),
     ],

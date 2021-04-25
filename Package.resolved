@@ -2,11 +2,20 @@
   "object": {
     "pins": [
       {
+        "package": "BinaryCodable",
+        "repositoryURL": "https://github.com/KittyMac/BinaryCodable.git",
+        "state": {
+          "branch": "develop",
+          "revision": "4caa9de7d9c51b0777fc4524a6c19221fa42538f",
+          "version": null
+        }
+      },
+      {
         "package": "Flynn",
         "repositoryURL": "https://github.com/KittyMac/Flynn.git",
         "state": {
-          "branch": "master",
-          "revision": "f7d21ed4da160965ba6fdba272bb0d6ccb3b3a87",
+          "branch": "cluster_archiver",
+          "revision": "ad0a65c972599a4c7d95ff2d710a53d669e6b0fe",
           "version": null
         }
       },
@@ -24,8 +33,8 @@
         "repositoryURL": "https://github.com/apple/swift-argument-parser",
         "state": {
           "branch": null,
-          "revision": "831ed5e860a70e745bc1337830af4786b2576881",
-          "version": "0.4.1"
+          "revision": "47bd06ebeff8146ecd0020809e186218b46f465f",
+          "version": "0.4.2"
         }
       }
     ]
