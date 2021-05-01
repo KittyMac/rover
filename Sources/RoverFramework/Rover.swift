@@ -1,3 +1,5 @@
+// swiftlint:disable function_body_length
+
 import Foundation
 import Flynn
 import libpq
@@ -112,6 +114,11 @@ public final class Rover: Actor {
 
         for param in params {
             switch param {
+            case let value as Date:
+                types.append(0)
+                formats.append(0)
+                lengths.append(Int32(0))
+                values.append(value.toISO8601().asBytes())
             case let value as String:
                 types.append(0)
                 formats.append(0)

@@ -18,18 +18,22 @@ final class RoverFrameworkTests: XCTestCase {
         
         let rover = Rover()
         
-        rover.beConnect(ConnectionInfo(), Flynn.any) { success in
+        let connectionInfo = ConnectionInfo(host: "127.0.0.1",
+                                            username: "postgres",
+                                            password: "12345")
+        
+        rover.beConnect(connectionInfo, Flynn.any) { success in
             XCTAssert(success)
         }
         
         rover.beRun("drop table people", Flynn.any, Rover.ignore)
         
-        rover.beRun("create table if not exists people ( id serial primary key, name text not null, email text );", Flynn.any, Rover.ignore)
+        rover.beRun("create table if not exists people ( id serial primary key, name text not null, email text, date timestamptz );", Flynn.any, Rover.ignore)
         
-        rover.beRun("insert into people (name, email) values ($1, $2);", ["Rocco", nil], Flynn.any, Rover.ignore)
-        rover.beRun("insert into people (name, email) values ($1, $2);", ["John", "a@b.com"], Flynn.any, Rover.ignore)
-        rover.beRun("insert into people (name, email) values ($1, $2);", ["Jane", nil], Flynn.any, Rover.ignore)
-                
+        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Rocco", nil, Date()], Flynn.any, Rover.error)
+        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["John", "a@b.com", Date()], Flynn.any, Rover.ignore)
+        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Jane", nil, Date()], Flynn.any, Rover.ignore)
+        
         rover.beRun("select count(*) from people where name = ANY($1);",
                     [["Rocco", "John", "Mark", "Anthony"]],
                     Flynn.any) { result in
@@ -42,6 +46,9 @@ final class RoverFrameworkTests: XCTestCase {
             for row in 0..<result.rows {
                 if let name = result.get(string: row, 1) {
                     names.append(name)
+                }
+                if let date = result.get(date: row, 3) {
+                    XCTAssertTrue(date < Date())
                 }
             }
                         

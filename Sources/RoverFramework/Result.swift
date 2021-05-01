@@ -1,5 +1,27 @@
+import Foundation
 import Flynn
 import libpq
+
+extension Date {
+    func toISO8601() -> String {
+        let iso8601DateFormatter = ISO8601DateFormatter()
+        iso8601DateFormatter.formatOptions = [.withInternetDateTime,
+                                              .withFractionalSeconds,
+                                              .withSpaceBetweenDateAndTime]
+        return iso8601DateFormatter.string(from: self)
+    }
+}
+
+extension String {
+    func toISO8601() -> Date? {
+        // "2021-05-01 03:40:24.966362+00"
+        let iso8601DateFormatter = ISO8601DateFormatter()
+        iso8601DateFormatter.formatOptions = [.withInternetDateTime,
+                                              .withFractionalSeconds,
+                                              .withSpaceBetweenDateAndTime]
+        return iso8601DateFormatter.date(from: self)
+    }
+}
 
 public final class Result {
     private var resultPtr = OpaquePointer(bitPattern: 0)
@@ -26,6 +48,11 @@ public final class Result {
     public var rows: Int32 {
         guard let resultPtr = self.resultPtr else { return 0 }
         return Int32(PQntuples(resultPtr))
+    }
+
+    public func get(date row: Int32, _ col: Int32) -> Date? {
+        guard let string = get(string: row, col) else { return nil }
+        return string.toISO8601()
     }
 
     public func get(string row: Int32, _ col: Int32) -> String? {
