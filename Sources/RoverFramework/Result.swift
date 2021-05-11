@@ -19,6 +19,10 @@ extension String {
         iso8601DateFormatter.formatOptions = [.withInternetDateTime,
                                               .withFractionalSeconds,
                                               .withSpaceBetweenDateAndTime]
+        if let date = iso8601DateFormatter.date(from: self) {
+            return date
+        }
+        iso8601DateFormatter.formatOptions = [.withInternetDateTime, .withSpaceBetweenDateAndTime]
         return iso8601DateFormatter.date(from: self)
     }
 }
