@@ -1,0 +1,17 @@
+# Store a file named postgres.env in the same directory as your Xcode project.
+# This script will use AppleScript to find this file and use its contents
+# to drive which postgres database to run the query against
+
+POSTGRESENV=`osascript -e 'tell application "Xcode" to return POSIX path of (file of document of front window as string)'`
+
+source "$POSTGRESENV/../../postgres.env"
+
+echo "============================================================================" > /tmp/psql.automator.output.txt
+echo "Executing on $POSTGRES_DATABASE" @ "$POSTGRES_IPADDRESS" >> /tmp/psql.automator.output.txt
+echo "============================================================================\n" >> /tmp/psql.automator.output.txt
+
+echo "$1\n\n" >> /tmp/psql.automator.output.txt
+
+echo "$1" | PGPASSWORD=$POSTGRES_PASSWORD /usr/local/bin/psql -h $POSTGRES_IPADDRESS -U postgres -d "$POSTGRES_DATABASE" >> /tmp/psql.automator.output.txt 2>&1
+
+/usr/local/bin/mate /tmp/psql.automator.output.txt
