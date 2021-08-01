@@ -4,10 +4,14 @@
 
 SWIFT_BUILD_FLAGS=--configuration release
 
-all: fix_bad_header_files build
+all: fix_module_header_apple build
 	
-fix_bad_header_files:
-	-@find  . -name '._*.h' -exec rm {} \;
+fix_module_header_apple:
+	# on M1 Macs, the path to libpq-fe.h header is /opt/homebrew/include/libpq-fe.h
+	# on any sane Mac, the path to libpq-fe.h header is /usr/local/include/libpq-fe.h
+	if [ -f /opt/homebrew/include/libpq-fe.h ] ; then echo 'module libpq {\n\theader "/opt/homebrew/include/libpq-fe.h"\n\tlink "pq"\n\texport *\n}' > Sources/libpq-apple/module.modulemap; fi;
+	if [ -f /usr/local/include/libpq-fe.h ] ; then echo 'module libpq {\n\theader "/usr/local/include/libpq-fe.h"\n\tlink "pq"\n\texport *\n}' > Sources/libpq-apple/module.modulemap; fi;
+
 
 build:
 	./meta/CombinedBuildPhases.sh
@@ -24,5 +28,4 @@ update:
 
 xcode:
 	swift package generate-xcodeproj
-	meta/addBuildPhase rover.xcodeproj/project.pbxproj 'Rover::RoverFramework' 'cd $${SRCROOT}; ./meta/CombinedBuildPhases.sh'
-
+	meta/addBuildPhase rover.xcodeproj/project.pbxproj 'Rover::RoverFramework' 'export PATH=/opt/homebrew/bin:/opt/homebrew/sbin:$PATH; cd $${SRCROOT}; ./meta/CombinedBuildPhases.sh'
