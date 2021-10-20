@@ -39,7 +39,14 @@ let package = Package(
     targets: [
         .target(
             name: "Rover",
-            dependencies: ["RoverFramework"]),
+            dependencies: ["RoverFramework"],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-L/usr/local/lib/",
+                    "-lpq"
+                ])
+            ]
+        ),
 		
         .target(
             name: "RoverFramework",
@@ -49,7 +56,14 @@ let package = Package(
                 "libpq",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
 				
-			]),
+			],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-L/usr/local/lib/",
+                    "-lpq"
+                ])
+            ]
+        ),
         
         libpqLibrary,
         
