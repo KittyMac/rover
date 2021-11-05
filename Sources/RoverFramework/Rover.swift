@@ -47,6 +47,7 @@ public final class Rover: Actor {
         }
     }
 
+    private let queue = DispatchQueue(label: "postgresConnection", qos: .background)
     private var connectionInfo: ConnectionInfo?
     private var connectionPtr = OpaquePointer(bitPattern: 0)
 
@@ -89,11 +90,16 @@ public final class Rover: Actor {
         disconnect()
     }
 
-    private func _beRun(_ statement: String) -> Result {
-        return Result(PQexec(connectionPtr, statement))
+    private func _beRun(_ statement: String,
+                        _ returnCallback: @escaping (Result) -> ()) {
+        queue.async {
+            returnCallback(Result(PQexec(self.connectionPtr, statement)))
+        }
     }
 
-    private func _beRun(_ statement: String, _ params: [Any?]) -> Result {
+    private func _beRun(_ statement: String,
+                        _ params: [Any?],
+                        _ returnCallback: @escaping (Result) -> ()) {
         var types: [Oid] = []
         types.reserveCapacity(params.count)
 
@@ -141,16 +147,18 @@ public final class Rover: Actor {
             }
         }
 
-        return Result(PQexecParams(
-            connectionPtr,
-            statement,
-            Int32(params.count),
-            types,
-            values,
-            lengths,
-            formats,
-            Int32(0)
-        ))
+        queue.async {
+            returnCallback(Result(PQexecParams(
+                self.connectionPtr,
+                statement,
+                Int32(params.count),
+                types,
+                values,
+                lengths,
+                formats,
+                Int32(0)
+            )))
+        }
     }
 }
 
@@ -179,8 +187,11 @@ extension Rover {
                       _ sender: Actor,
                       _ callback: @escaping ((Result) -> Void)) -> Self {
         unsafeSend {
-            let result = self._beRun(statement)
-            sender.unsafeSend { callback(result) }
+            self._beRun(statement) { arg0 in
+                sender.unsafeSend {
+                    callback(arg0)
+                }
+            }
         }
         return self
     }
@@ -190,8 +201,11 @@ extension Rover {
                       _ sender: Actor,
                       _ callback: @escaping ((Result) -> Void)) -> Self {
         unsafeSend {
-            let result = self._beRun(statement, params)
-            sender.unsafeSend { callback(result) }
+            self._beRun(statement, params) { arg0 in
+                sender.unsafeSend {
+                    callback(arg0)
+                }
+            }
         }
         return self
     }
