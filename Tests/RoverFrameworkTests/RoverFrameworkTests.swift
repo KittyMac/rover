@@ -30,7 +30,7 @@ final class RoverFrameworkTests: XCTestCase {
         
         rover.beRun("create table if not exists people ( id serial primary key, name text not null, email text, date timestamptz );", Flynn.any, Rover.ignore)
         
-        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Rocco", nil, Date()], Flynn.any, Rover.error)
+        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Rocco", nil, Date()], Flynn.any, Rover.ignore)
         rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["John", "a@b.com", Date()], Flynn.any, Rover.ignore)
         rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Jane", nil, Date()], Flynn.any, Rover.ignore)
         

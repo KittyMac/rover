@@ -52,7 +52,11 @@ public final class Rover: Actor {
     private var connectionPtr = OpaquePointer(bitPattern: 0)
 
     private var connected: Bool {
-        return PQstatus(connectionPtr) == CONNECTION_OK
+        var connected = false
+        queue.sync {
+            connected = (PQstatus(connectionPtr) == CONNECTION_OK)
+        }
+        return connected
     }
 
     deinit {
@@ -75,14 +79,18 @@ public final class Rover: Actor {
 
     private func disconnect() {
         if connectionPtr != nil {
-            PQfinish(connectionPtr)
-            connectionPtr = OpaquePointer(bitPattern: 0)
+            queue.sync {
+                PQfinish(connectionPtr)
+                connectionPtr = OpaquePointer(bitPattern: 0)
+            }
         }
     }
 
     private func _beConnect(_ info: ConnectionInfo) -> Bool {
-        connectionInfo = info
-        connectionPtr = PQconnectdb(info.description)
+        queue.sync {
+            connectionInfo = info
+            connectionPtr = PQconnectdb(info.description)
+        }
         return connected
     }
 
@@ -100,54 +108,54 @@ public final class Rover: Actor {
     private func _beRun(_ statement: String,
                         _ params: [Any?],
                         _ returnCallback: @escaping (Result) -> ()) {
-        var types: [Oid] = []
-        types.reserveCapacity(params.count)
+        queue.async {
+            var types: [Oid] = []
+            types.reserveCapacity(params.count)
 
-        var formats: [Int32] = []
-        formats.reserveCapacity(params.count)
+            var formats: [Int32] = []
+            formats.reserveCapacity(params.count)
 
-        var values: [UnsafePointer<Int8>?] = []
-        values.reserveCapacity(params.count)
+            var values: [UnsafePointer<Int8>?] = []
+            values.reserveCapacity(params.count)
 
-        var lengths: [Int32] = []
-        lengths.reserveCapacity(params.count)
+            var lengths: [Int32] = []
+            lengths.reserveCapacity(params.count)
 
-        defer {
-            for value in values {
-                value?.deallocate()
-            }
-        }
-
-        for param in params {
-            switch param {
-            case let value as Date:
-                types.append(0)
-                formats.append(0)
-                lengths.append(Int32(0))
-                values.append(value.toISO8601().asBytes())
-            case let value as String:
-                types.append(0)
-                formats.append(0)
-                lengths.append(Int32(0))
-                values.append(value.asBytes())
-            case let value as [String]:
-                types.append(0)
-                formats.append(0)
-                lengths.append(Int32(0))
-                values.append("{\(value.joined(separator: ","))}".asBytes())
-            default:
-                types.append(0)
-                formats.append(0)
-                lengths.append(Int32(0))
-                if let param = param {
-                    values.append("\(param)".asBytes())
-                } else {
-                    values.append(nil)
+            defer {
+                for value in values {
+                    value?.deallocate()
                 }
             }
-        }
 
-        queue.async {
+            for param in params {
+                switch param {
+                case let value as Date:
+                    types.append(0)
+                    formats.append(0)
+                    lengths.append(Int32(0))
+                    values.append(value.toISO8601().asBytes())
+                case let value as String:
+                    types.append(0)
+                    formats.append(0)
+                    lengths.append(Int32(0))
+                    values.append(value.asBytes())
+                case let value as [String]:
+                    types.append(0)
+                    formats.append(0)
+                    lengths.append(Int32(0))
+                    values.append("{\(value.joined(separator: ","))}".asBytes())
+                default:
+                    types.append(0)
+                    formats.append(0)
+                    lengths.append(Int32(0))
+                    if let param = param {
+                        values.append("\(param)".asBytes())
+                    } else {
+                        values.append(nil)
+                    }
+                }
+            }
+            
             returnCallback(Result(PQexecParams(
                 self.connectionPtr,
                 statement,
