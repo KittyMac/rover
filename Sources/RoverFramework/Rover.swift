@@ -144,6 +144,11 @@ public final class Rover: Actor {
                     formats.append(0)
                     lengths.append(Int32(0))
                     values.append("{\(value.joined(separator: ","))}".asBytes())
+                case let value as [Int]:
+                    types.append(0)
+                    formats.append(0)
+                    lengths.append(Int32(0))
+                    values.append("{\(value.map({$0.description}).joined(separator: ","))}".asBytes())
                 default:
                     types.append(0)
                     formats.append(0)
