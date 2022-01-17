@@ -8,19 +8,22 @@ public struct ConnectionInfo: CustomStringConvertible {
     let username: String?
     let password: String?
     let autoReconnect: Bool
+    let busyDelta: Int
 
     public init(database inDatabase: String? = nil,
                 host inHost: String? = nil,
                 port inPort: Int? = nil,
                 username inUsername: String? = nil,
                 password inPassword: String? = nil,
-                autoReconnect inAutoReconnect: Bool = true) {
+                autoReconnect inAutoReconnect: Bool = true,
+                busyDelta inBusyDelta: Int = 4) {
         database = inDatabase
         host = inHost
         port = inPort
         username = inUsername
         password = inPassword
         autoReconnect = inAutoReconnect
+        busyDelta = inBusyDelta
     }
 
     public var description: String {

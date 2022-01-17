@@ -6,8 +6,11 @@ public typealias kDidConnectCallback = (RoverManager) -> ()
 
 public class RoverManager: Actor {
     
+    public var unsafeBusy: Bool = false
+    
     private var rovers: [Rover] = []
     private var roundRobin = 0
+    private var outstandingRequestCount = 0
 
     public init(connect info: ConnectionInfo,
                 maxConnections: Int,
@@ -29,6 +32,19 @@ public class RoverManager: Actor {
                 }
             }
         }
+        
+        Flynn.Timer(timeInterval: 0.1, repeats: true, self) { (timer) in
+            var outstandingRequests = 0
+            for rover in self.rovers {
+                outstandingRequests += rover.unsafeOutstandingRequests
+            }
+            self.unsafeBusy = outstandingRequests > self.rovers.count * info.busyDelta
+        }
+    }
+    
+    private func updateBusy(_ rover: Rover, delta: Int) {
+        outstandingRequestCount += delta
+        unsafeBusy = outstandingRequestCount > rovers.count
     }
 
     private func _beNext() -> Rover? {

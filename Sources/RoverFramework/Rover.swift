@@ -47,6 +47,9 @@ public final class Rover: Actor {
             fatalError(error)
         }
     }
+    
+    private var outstandingRequestsLock = NSLock()
+    public var unsafeOutstandingRequests = 0
 
     private let queue = DispatchQueue(label: "postgresConnection", qos: .background)
     private var connectionInfo: ConnectionInfo?
@@ -63,15 +66,15 @@ public final class Rover: Actor {
     deinit {
         disconnect()
     }
-
+    
     public override init() {
         super.init()
-
+        
         unsafeCoreAffinity = .preferEfficiency
-
+        
         Flynn.Timer(timeInterval: 1.0, repeats: true, self) { _ in
             if let connectionInfo = self.connectionInfo,
-                self.connected == false && connectionInfo.autoReconnect {
+               self.connected == false && connectionInfo.autoReconnect {
                 print("reconnecting to database...")
                 _ = self._beConnect(connectionInfo)
             }
@@ -110,16 +113,26 @@ public final class Rover: Actor {
         _beRun(statement.description, params, returnCallback)
     }
     
+    private func updateRequestCount(delta: Int) {
+        outstandingRequestsLock.lock()
+        unsafeOutstandingRequests += delta
+        outstandingRequestsLock.unlock()
+    }
+    
     private func _beRun(_ statement: String,
                         _ returnCallback: @escaping (Result) -> ()) {
+        updateRequestCount(delta: 1)
         queue.async {
-            returnCallback(Result(PQexec(self.connectionPtr, statement)))
+            let result = Result(PQexec(self.connectionPtr, statement))
+            self.updateRequestCount(delta: -1)
+            returnCallback(result)
         }
     }
 
     private func _beRun(_ statement: String,
                         _ params: [Any?],
                         _ returnCallback: @escaping (Result) -> ()) {
+        updateRequestCount(delta: 1)
         queue.async {
             var types: [Oid] = []
             types.reserveCapacity(params.count)
@@ -173,7 +186,7 @@ public final class Rover: Actor {
                 }
             }
             
-            returnCallback(Result(PQexecParams(
+            let result = Result(PQexecParams(
                 self.connectionPtr,
                 statement,
                 Int32(params.count),
@@ -182,7 +195,10 @@ public final class Rover: Actor {
                 lengths,
                 formats,
                 Int32(0)
-            )))
+            ))
+            self.updateRequestCount(delta: -1)
+            
+            returnCallback(result)
         }
     }
 }
