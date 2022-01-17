@@ -45,7 +45,6 @@ public class RoverManager: Actor {
     private func _beRun(_ statement: String,
                         _ returnCallback: @escaping (Result) -> Void) {
         guard let rover = _beNext() else { fatalError("beRun() called before any connections were established") }
-        print("running \(statement)")
         rover.beRun(statement, self) { result in
             returnCallback(result)
         }
@@ -55,7 +54,6 @@ public class RoverManager: Actor {
                         _ params: [Any?],
                         _ returnCallback: @escaping (Result) -> Void) {
         guard let rover = _beNext() else { fatalError("beRun() called before any connections were established") }
-        print("running \(statement)")
         rover.beRun(statement, params, self) { result in
             returnCallback(result)
         }
@@ -64,7 +62,6 @@ public class RoverManager: Actor {
     private func _beRun(_ statement: Hitch,
                         _ returnCallback: @escaping (Result) -> Void) {
         guard let rover = _beNext() else { fatalError("beRun() called before any connections were established") }
-        print("running \(statement)")
         rover.beRun(statement, self) { result in
             returnCallback(result)
         }
@@ -74,7 +71,6 @@ public class RoverManager: Actor {
                         _ params: [Any?],
                         _ returnCallback: @escaping (Result) -> Void) {
         guard let rover = _beNext() else { fatalError("beRun() called before any connections were established") }
-        print("running \(statement)")
         rover.beRun(statement, params, self) { result in
             returnCallback(result)
         }
