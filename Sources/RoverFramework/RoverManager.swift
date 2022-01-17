@@ -11,6 +11,10 @@ public class RoverManager: Actor {
     private var rovers: [Rover] = []
     private var roundRobin = 0
     private var outstandingRequestCount = 0
+    
+    public override init() {
+        
+    }
 
     public init(connect info: ConnectionInfo,
                 maxConnections: Int,
