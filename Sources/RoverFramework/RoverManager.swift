@@ -2,17 +2,17 @@ import Flynn
 import Foundation
 import Hitch
 
-typealias kDidConnectCallback = (RoverManager) -> ()
+public typealias kDidConnectCallback = (RoverManager) -> ()
 
 public class RoverManager: Actor {
     
     private var rovers: [Rover] = []
     private var roundRobin = 0
 
-    init(connect info: ConnectionInfo,
-         maxConnections: Int,
-         _ sender: Actor,
-         _ onFirstConnect: @escaping kDidConnectCallback) {
+    public init(connect info: ConnectionInfo,
+                maxConnections: Int,
+                _ sender: Actor,
+                _ onFirstConnect: @escaping kDidConnectCallback) {
         
         super.init()
         
