@@ -3,6 +3,7 @@
 import Foundation
 import Flynn
 import libpq
+import Hitch
 
 fileprivate extension String {
     func asBytes() -> UnsafeMutablePointer<Int8> {
@@ -98,6 +99,17 @@ public final class Rover: Actor {
         disconnect()
     }
 
+    private func _beRun(_ statement: Hitch,
+                        _ returnCallback: @escaping (Result) -> ()) {
+        _beRun(statement.description, returnCallback)
+    }
+    
+    private func _beRun(_ statement: Hitch,
+                        _ params: [Any?],
+                        _ returnCallback: @escaping (Result) -> ()) {
+        _beRun(statement.description, params, returnCallback)
+    }
+    
     private func _beRun(_ statement: String,
                         _ returnCallback: @escaping (Result) -> ()) {
         queue.async {
@@ -193,6 +205,33 @@ extension Rover {
     @discardableResult
     public func beClose() -> Self {
         unsafeSend(_beClose)
+        return self
+    }
+    @discardableResult
+    public func beRun(_ statement: Hitch,
+                      _ sender: Actor,
+                      _ callback: @escaping ((Result) -> Void)) -> Self {
+        unsafeSend {
+            self._beRun(statement) { arg0 in
+                sender.unsafeSend {
+                    callback(arg0)
+                }
+            }
+        }
+        return self
+    }
+    @discardableResult
+    public func beRun(_ statement: Hitch,
+                      _ params: [Any?],
+                      _ sender: Actor,
+                      _ callback: @escaping ((Result) -> Void)) -> Self {
+        unsafeSend {
+            self._beRun(statement, params) { arg0 in
+                sender.unsafeSend {
+                    callback(arg0)
+                }
+            }
+        }
         return self
     }
     @discardableResult

@@ -6,17 +6,17 @@
         "repositoryURL": "https://github.com/KittyMac/Flynn.git",
         "state": {
           "branch": "master",
-          "revision": "329d6d4905c35b9c18b85faf57c40ad39ce6c062",
+          "revision": "c1079d65959b672ec5dba29c24a3c749079d9f74",
           "version": null
         }
       },
       {
-        "package": "Ipecac",
-        "repositoryURL": "https://github.com/KittyMac/Ipecac.git",
+        "package": "Hitch",
+        "repositoryURL": "https://github.com/KittyMac/Hitch.git",
         "state": {
-          "branch": "master",
-          "revision": "89fb6d88957b18963fe4a4aa49773a51cd8fc25f",
-          "version": null
+          "branch": null,
+          "revision": "5169e3bb351921474d263c8d76baa8d8baa620ac",
+          "version": "0.2.4"
         }
       },
       {
@@ -24,8 +24,8 @@
         "repositoryURL": "https://github.com/apple/swift-argument-parser",
         "state": {
           "branch": null,
-          "revision": "47bd06ebeff8146ecd0020809e186218b46f465f",
-          "version": "0.4.2"
+          "revision": "6b2aa2748a7881eebb9f84fb10c01293e15b52ca",
+          "version": "0.5.0"
         }
       }
     ]

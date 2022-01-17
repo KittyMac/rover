@@ -12,6 +12,7 @@ fix_module_header_apple:
 	if [ -f /opt/homebrew/include/libpq-fe.h ] ; then echo 'module libpq [system] {\n\theader "/opt/homebrew/include/libpq-fe.h"\n\tlink "libpq"\n\texport *\n}' > Sources/libpq-apple/module.modulemap; fi;
 	if [ -f /usr/local/include/libpq-fe.h ] ; then echo 'module libpq [system] {\n\theader "/usr/local/include/libpq-fe.h"\n\tlink "libpq"\n\texport *\n}' > Sources/libpq-apple/module.modulemap; fi;
 
+	#TODO: also change the path in the Makefile for M1 macs
 
 build:
 	./meta/CombinedBuildPhases.sh
@@ -28,4 +29,5 @@ update:
 
 xcode:
 	swift package generate-xcodeproj
-	meta/addBuildPhase rover.xcodeproj/project.pbxproj 'Rover::RoverFramework' 'export PATH=/opt/homebrew/bin:/opt/homebrew/sbin:$PATH; cd $${SRCROOT}; ./meta/CombinedBuildPhases.sh'
+	meta/addBuildPhase rover.xcodeproj/project.pbxproj "Rover::RoverFramework" 'export PATH=/opt/homebrew/bin:/opt/homebrew/sbin:$PATH; cd $${SRCROOT}; ./meta/CombinedBuildPhases.sh'
+	open rover.xcodeproj
