@@ -23,6 +23,8 @@ public class RoverManager: Actor {
         
         super.init()
         
+        unsafePriority = 99
+        
         var didCallFirstConnect = false
         for _ in 0..<maxConnections {
             let rover = Rover()

@@ -56,11 +56,9 @@ public final class Rover: Actor {
     private var connectionPtr = OpaquePointer(bitPattern: 0)
 
     private var connected: Bool {
-        var connected = false
-        queue.sync {
-            connected = (PQstatus(connectionPtr) == CONNECTION_OK)
-        }
-        return connected
+        let localPtr = connectionPtr
+        guard localPtr != nil else { return false }
+        return (PQstatus(localPtr) == CONNECTION_OK)
     }
 
     deinit {
@@ -70,7 +68,7 @@ public final class Rover: Actor {
     public override init() {
         super.init()
         
-        unsafeCoreAffinity = .preferEfficiency
+        unsafePriority = 99
         
         Flynn.Timer(timeInterval: 1.0, repeats: true, self) { _ in
             if let connectionInfo = self.connectionInfo,
