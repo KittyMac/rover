@@ -10,7 +10,6 @@ public class RoverManager: Actor {
     
     private var rovers: [Rover] = []
     private var roundRobin = 0
-    private var outstandingRequestCount = 0
     
     public override init() {
         
@@ -48,20 +47,8 @@ public class RoverManager: Actor {
         }
     }
     
-    private func updateBusy(_ rover: Rover, delta: Int) {
-        outstandingRequestCount += delta
-        unsafeBusy = outstandingRequestCount > rovers.count
-    }
-
     private func _beNext() -> Rover? {
-        // round robin the next connection
-        roundRobin = (roundRobin + 1) % rovers.count
-        // if the next one happens to have more oustanding requests than its neighbor, skip it and choose the neighbor
-        let neighbor = (roundRobin + 1) % rovers.count
-        if rovers[roundRobin].unsafeMessagesCount > rovers[neighbor].unsafeMessagesCount {
-            roundRobin = neighbor
-        }
-        return rovers[roundRobin]
+        return rovers.min { $0.unsafeOutstandingRequests < $1.unsafeOutstandingRequests }
     }
 
     private func _beRun(_ statement: String,
