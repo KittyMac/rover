@@ -2,11 +2,20 @@
   "object": {
     "pins": [
       {
+        "package": "Chronometer",
+        "repositoryURL": "https://github.com/KittyMac/Chronometer.git",
+        "state": {
+          "branch": null,
+          "revision": "35289a90ee0bb4a76f8acd647b773aeacf4d8856",
+          "version": "0.1.2"
+        }
+      },
+      {
         "package": "Flynn",
         "repositoryURL": "https://github.com/KittyMac/Flynn.git",
         "state": {
           "branch": "master",
-          "revision": "c1079d65959b672ec5dba29c24a3c749079d9f74",
+          "revision": "bef6eb1bc963eb3b55a8e0a7c98ddc8a44a8a90c",
           "version": null
         }
       },
@@ -15,8 +24,8 @@
         "repositoryURL": "https://github.com/KittyMac/Hitch.git",
         "state": {
           "branch": null,
-          "revision": "5169e3bb351921474d263c8d76baa8d8baa620ac",
-          "version": "0.2.4"
+          "revision": "cb638ce61942f3d26bc0ca80d765846a43fa4409",
+          "version": "0.2.8"
         }
       },
       {
