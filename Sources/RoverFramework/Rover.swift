@@ -50,6 +50,8 @@ public final class Rover: Actor {
     
     private var outstandingRequestsLock = NSLock()
     public var unsafeOutstandingRequests = 0
+    
+    private var reconnectTimer: Flynn.Timer?
 
     private let queue = DispatchQueue(label: "postgresConnection", qos: .background)
     private var connectionInfo: ConnectionInfo?
@@ -69,14 +71,6 @@ public final class Rover: Actor {
         super.init()
         
         unsafePriority = 99
-        
-        Flynn.Timer(timeInterval: 1.0, repeats: true, self) { _ in
-            if let connectionInfo = self.connectionInfo,
-               self.connected == false && connectionInfo.autoReconnect {
-                print("reconnecting to database...")
-                _ = self._beConnect(connectionInfo)
-            }
-        }
     }
 
     private func disconnect() {
@@ -92,6 +86,18 @@ public final class Rover: Actor {
         queue.sync {
             connectionInfo = info
             connectionPtr = PQconnectdb(info.description)
+            
+            reconnectTimer?.cancel()
+            reconnectTimer = nil
+            
+            if info.autoReconnect {
+                Flynn.Timer(timeInterval: info.reconnectTimer, repeats: true, self) { _ in
+                    if self.connected == false {
+                        print("reconnecting to database...")
+                        _ = self._beConnect(info)
+                    }
+                }
+            }
         }
         return connected
     }

@@ -1,5 +1,6 @@
 import Flynn
 import libpq
+import Foundation
 
 public struct ConnectionInfo: CustomStringConvertible {
     let database: String?
@@ -9,6 +10,8 @@ public struct ConnectionInfo: CustomStringConvertible {
     let password: String?
     let autoReconnect: Bool
     let busyDelta: Int
+    let busyTimer: TimeInterval
+    let reconnectTimer: TimeInterval
 
     public init(database inDatabase: String? = nil,
                 host inHost: String? = nil,
@@ -16,7 +19,9 @@ public struct ConnectionInfo: CustomStringConvertible {
                 username inUsername: String? = nil,
                 password inPassword: String? = nil,
                 autoReconnect inAutoReconnect: Bool = true,
-                busyDelta inBusyDelta: Int = 4) {
+                reconnectTimer inReconnectTimer: TimeInterval = 10,
+                busyDelta inBusyDelta: Int = 4,
+                busyTimer inBusyTimer: TimeInterval = 10) {
         database = inDatabase
         host = inHost
         port = inPort
@@ -24,6 +29,8 @@ public struct ConnectionInfo: CustomStringConvertible {
         password = inPassword
         autoReconnect = inAutoReconnect
         busyDelta = inBusyDelta
+        busyTimer = inBusyTimer
+        reconnectTimer = inReconnectTimer
     }
 
     public var description: String {
