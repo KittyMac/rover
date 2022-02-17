@@ -65,7 +65,10 @@ public final class Result {
     public func get(halfHitch row: Int32, _ col: Int32) -> HalfHitch? {
         guard let value = PQgetvalue(resultPtr, row, col) else { return nil }
         let len = strlen(value)
-        return HalfHitch(raw: value, count: len, from: 0, to: len)
+        
+        return value.withMemoryRebound(to: UInt8.self, capacity: len) { ptr in
+            return HalfHitch(raw: ptr, count: len, from: 0, to: len)
+        }
     }
 
     public func get(iso8601 row: Int32, _ col: Int32) -> Date? {

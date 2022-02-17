@@ -33,7 +33,7 @@ let package = Package(
     ],
     dependencies: [
 		.package(url: "https://github.com/KittyMac/Flynn.git", .branch("master")),
-        .package(url: "https://github.com/KittyMac/Hitch.git", .upToNextMinor(from: "0.3.0")),
+        .package(url: "https://github.com/KittyMac/Hitch.git", .upToNextMinor(from: "0.4.0")),
         .package(url: "https://github.com/KittyMac/Chronometer.git", .upToNextMinor(from: "0.1.0")),
         .package(url: "https://github.com/apple/swift-argument-parser", from: "0.3.0"),
     ],
