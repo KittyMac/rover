@@ -29,6 +29,6 @@ update:
 
 xcode:
 	swift package generate-xcodeproj
-	meta/addBuildPhase rover.xcodeproj/project.pbxproj "Rover::RoverFramework" 'export PATH=/opt/homebrew/bin:/opt/homebrew/sbin:$PATH; cd $${SRCROOT}; ./meta/CombinedBuildPhases.sh'
+	meta/addBuildPhase rover.xcodeproj/project.pbxproj "Rover::Rover" 'export PATH=/opt/homebrew/bin:/opt/homebrew/sbin:$PATH; cd $${SRCROOT}; ./meta/CombinedBuildPhases.sh'
 	sleep 2
 	open rover.xcodeproj

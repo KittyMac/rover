@@ -28,36 +28,21 @@ let package = Package(
         .macOS(.v10_13)
     ],
     products: [
-		.executable(name: "Rover", targets: ["Rover"]),
-        .library( name: "RoverFramework", targets: ["RoverFramework"] ),
+        .library( name: "Rover", targets: ["Rover"] ),
     ],
     dependencies: [
 		.package(url: "https://github.com/KittyMac/Flynn.git", .branch("master")),
         .package(url: "https://github.com/KittyMac/Hitch.git", .upToNextMinor(from: "0.4.0")),
-        .package(url: "https://github.com/KittyMac/Chronometer.git", .upToNextMinor(from: "0.1.0")),
-        .package(url: "https://github.com/apple/swift-argument-parser", from: "0.3.0"),
+        .package(url: "https://github.com/KittyMac/Chronometer.git", .upToNextMinor(from: "0.1.0"))
     ],
     targets: [
         .target(
             name: "Rover",
-            dependencies: ["RoverFramework"],
-            linkerSettings: [
-                .unsafeFlags([
-                    "-L/usr/local/lib/",
-                    "-lpq"
-                ])
-            ]
-        ),
-		
-        .target(
-            name: "RoverFramework",
             dependencies: [
                 "Hitch",
                 "Chronometer",
                 "Flynn",
-                "libpq",
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-				
+                "libpq",				
 			],
             linkerSettings: [
                 .unsafeFlags([
@@ -70,7 +55,7 @@ let package = Package(
         libpqLibrary,
         
         .testTarget(
-            name: "RoverFrameworkTests",
-            dependencies: ["RoverFramework"]),
+            name: "RoverTests",
+            dependencies: ["Rover"]),
     ]
 )

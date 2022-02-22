@@ -1,9 +1,9 @@
 import XCTest
 import Flynn
 
-@testable import RoverFramework
+@testable import Rover
 
-final class RoverFrameworkTests: XCTestCase {
+final class RoverTests: XCTestCase {
     
     override func setUp() {
         Flynn.startup()
