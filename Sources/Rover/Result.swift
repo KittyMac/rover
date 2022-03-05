@@ -67,7 +67,16 @@ public final class Result {
         let len = strlen(value)
         
         return value.withMemoryRebound(to: UInt8.self, capacity: len) { ptr in
-            return HalfHitch(raw: ptr, count: len, from: 0, to: len)
+            return HalfHitch(sourceObject: nil, raw: ptr, count: len, from: 0, to: len)
+        }
+    }
+    
+    public func get(hitch row: Int32, _ col: Int32) -> Hitch? {
+        guard let value = PQgetvalue(resultPtr, row, col) else { return nil }
+        let len = strlen(value)
+        
+        return value.withMemoryRebound(to: UInt8.self, capacity: len) { ptr in
+            return Hitch(bytes: ptr, offset: 0, count: len)
         }
     }
 
