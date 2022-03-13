@@ -31,7 +31,7 @@ let package = Package(
         .library( name: "Rover", targets: ["Rover"] ),
     ],
     dependencies: [
-		.package(url: "https://github.com/KittyMac/Flynn.git", .branch("master")),
+		.package(url: "https://github.com/KittyMac/Flynn.git", .upToNextMinor(from: "0.2.0")),
         .package(url: "https://github.com/KittyMac/Hitch.git", .upToNextMinor(from: "0.4.0")),
         .package(url: "https://github.com/KittyMac/Chronometer.git", .upToNextMinor(from: "0.1.0"))
     ],
