@@ -82,7 +82,8 @@ public final class Rover: Actor {
         }
     }
 
-    private func _beConnect(_ info: ConnectionInfo) -> Bool {
+    private func _beConnect(_ info: ConnectionInfo,
+                            _ returnCallback: @escaping (Bool) -> Void) {
         queue.sync {
             connectionInfo = info
             connectionPtr = PQconnectdb(info.description)
@@ -94,12 +95,15 @@ public final class Rover: Actor {
                 Flynn.Timer(timeInterval: info.reconnectTimer, repeats: true, self) { _ in
                     if self.connected == false {
                         print("reconnecting to database...")
-                        _ = self._beConnect(info)
+                        self._beConnect(info, returnCallback)
                     }
                 }
             }
+            
+            if connected {
+                returnCallback(connected)
+            }
         }
-        return connected
     }
 
     private func _beClose() {
@@ -217,8 +221,11 @@ extension Rover {
                           _ sender: Actor,
                           _ callback: @escaping ((Bool) -> Void)) -> Self {
         unsafeSend {
-            let result = self._beConnect(info)
-            sender.unsafeSend { callback(result) }
+            self._beConnect(info) { arg0 in
+                sender.unsafeSend {
+                    callback(arg0)
+                }
+            }
         }
         return self
     }
