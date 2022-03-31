@@ -11,6 +11,7 @@ import PackageDescription
                 .brew(["postgres"]),
                 .apt(["libpq-dev"]),
             ])
+		let unsafeLibPath = "-L/usr/local/lib/"
 #else
 
 #if (arch(i386) || arch(x86_64))
@@ -22,6 +23,7 @@ import PackageDescription
                 .brew(["postgres"]),
                 .apt(["libpq-dev"]),
             ])
+		let unsafeLibPath = "-L/usr/local/lib/"
 #else
         let libpqLibrary = Target.systemLibrary(
             name: "libpq",
@@ -31,6 +33,7 @@ import PackageDescription
                 .brew(["postgres"]),
                 .apt(["libpq-dev"]),
             ])
+		let unsafeLibPath = "-L/opt/homebrew/opt/libpq/lib/"
 #endif
 #endif
 
@@ -58,7 +61,7 @@ let package = Package(
 			],
             linkerSettings: [
                 .unsafeFlags([
-                    "-L/usr/local/lib/",
+                    unsafeLibPath,
                     "-lpq"
                 ])
             ]
