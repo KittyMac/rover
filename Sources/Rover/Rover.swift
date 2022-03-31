@@ -47,10 +47,10 @@ public final class Rover: Actor {
             fatalError(error)
         }
     }
-    
+
     private var outstandingRequestsLock = NSLock()
     public var unsafeOutstandingRequests = 0
-    
+
     private var reconnectTimer: Flynn.Timer?
 
     private let queue = DispatchQueue(label: "postgresConnection", qos: .background)
@@ -66,10 +66,10 @@ public final class Rover: Actor {
     deinit {
         disconnect()
     }
-    
+
     public override init() {
         super.init()
-        
+
         unsafePriority = 99
     }
 
@@ -86,10 +86,10 @@ public final class Rover: Actor {
         queue.sync {
             connectionInfo = info
             connectionPtr = PQconnectdb(info.description)
-            
+
             reconnectTimer?.cancel()
             reconnectTimer = nil
-            
+
             if info.autoReconnect {
                 Flynn.Timer(timeInterval: info.reconnectTimer, repeats: true, self) { _ in
                     if self.connected == false {
@@ -107,24 +107,24 @@ public final class Rover: Actor {
     }
 
     private func _beRun(_ statement: Hitch,
-                        _ returnCallback: @escaping (Result) -> ()) {
+                        _ returnCallback: @escaping (Result) -> Void) {
         _beRun(statement.description, returnCallback)
     }
-    
+
     private func _beRun(_ statement: Hitch,
                         _ params: [Any?],
-                        _ returnCallback: @escaping (Result) -> ()) {
+                        _ returnCallback: @escaping (Result) -> Void) {
         _beRun(statement.description, params, returnCallback)
     }
-    
+
     private func updateRequestCount(delta: Int) {
         outstandingRequestsLock.lock()
         unsafeOutstandingRequests += delta
         outstandingRequestsLock.unlock()
     }
-    
+
     private func _beRun(_ statement: String,
-                        _ returnCallback: @escaping (Result) -> ()) {
+                        _ returnCallback: @escaping (Result) -> Void) {
         updateRequestCount(delta: 1)
         queue.async {
             let result = Result(PQexec(self.connectionPtr, statement))
@@ -135,7 +135,7 @@ public final class Rover: Actor {
 
     private func _beRun(_ statement: String,
                         _ params: [Any?],
-                        _ returnCallback: @escaping (Result) -> ()) {
+                        _ returnCallback: @escaping (Result) -> Void) {
         updateRequestCount(delta: 1)
         queue.async {
             var types: [Oid] = []
@@ -189,7 +189,7 @@ public final class Rover: Actor {
                     }
                 }
             }
-            
+
             let result = Result(PQexecParams(
                 self.connectionPtr,
                 statement,
@@ -201,7 +201,7 @@ public final class Rover: Actor {
                 Int32(0)
             ))
             self.updateRequestCount(delta: -1)
-            
+
             returnCallback(result)
         }
     }

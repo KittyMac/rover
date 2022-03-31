@@ -2,28 +2,28 @@ import Flynn
 import Foundation
 import Hitch
 
-public typealias kDidConnectCallback = (RoverManager) -> ()
+public typealias kDidConnectCallback = (RoverManager) -> Void
 
 public class RoverManager: Actor {
-    
+
     public var unsafeBusy: Bool = false
-    
+
     private var rovers: [Rover] = []
     private var roundRobin = 0
-    
+
     public override init() {
-        
+
     }
 
     public init(connect info: ConnectionInfo,
                 maxConnections: Int,
                 _ sender: Actor,
                 _ onFirstConnect: @escaping kDidConnectCallback) {
-        
+
         super.init()
-        
+
         unsafePriority = 99
-        
+
         var didCallFirstConnect = false
         for _ in 0..<maxConnections {
             let rover = Rover()
@@ -37,8 +37,8 @@ public class RoverManager: Actor {
                 }
             }
         }
-        
-        Flynn.Timer(timeInterval: info.busyTimer, repeats: true, self) { (timer) in
+
+        Flynn.Timer(timeInterval: info.busyTimer, repeats: true, self) { (_) in
             var outstandingRequests = 0
             for rover in self.rovers {
                 outstandingRequests += rover.unsafeOutstandingRequests
@@ -46,7 +46,7 @@ public class RoverManager: Actor {
             self.unsafeBusy = outstandingRequests > self.rovers.count * info.busyDelta
         }
     }
-    
+
     private func _beNext() -> Rover? {
         return rovers.min { $0.unsafeOutstandingRequests < $1.unsafeOutstandingRequests }
     }
@@ -67,7 +67,7 @@ public class RoverManager: Actor {
             returnCallback(result)
         }
     }
-    
+
     private func _beRun(_ statement: Hitch,
                         _ returnCallback: @escaping (Result) -> Void) {
         guard let rover = _beNext() else { fatalError("beRun() called before any connections were established") }

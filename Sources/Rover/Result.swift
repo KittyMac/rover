@@ -55,26 +55,26 @@ public final class Result {
         guard let resultPtr = self.resultPtr else { return 0 }
         return Int32(PQntuples(resultPtr))
     }
-    
+
     /// Warning: conversion to straight String() is expensive because it copies the data
     public func get(string row: Int32, _ col: Int32) -> String? {
         guard let value = PQgetvalue(resultPtr, row, col) else { return nil }
         return String(validatingUTF8: value)
     }
-    
+
     public func get(halfHitch row: Int32, _ col: Int32) -> HalfHitch? {
         guard let value = PQgetvalue(resultPtr, row, col) else { return nil }
         let len = strlen(value)
-        
+
         return value.withMemoryRebound(to: UInt8.self, capacity: len) { ptr in
             return HalfHitch(sourceObject: nil, raw: ptr, count: len, from: 0, to: len)
         }
     }
-    
+
     public func get(hitch row: Int32, _ col: Int32) -> Hitch? {
         guard let value = PQgetvalue(resultPtr, row, col) else { return nil }
         let len = strlen(value)
-        
+
         return value.withMemoryRebound(to: UInt8.self, capacity: len) { ptr in
             return Hitch(bytes: ptr, offset: 0, count: len)
         }
@@ -84,7 +84,7 @@ public final class Result {
         guard let halfHitch = get(halfHitch: row, col) else { return nil }
         return halfHitch.description.toISO8601()
     }
-    
+
     public func get(date row: Int32, _ col: Int32) -> Date? {
         guard let halfHitch = get(halfHitch: row, col) else { return nil }
         return halfHitch.description.date()

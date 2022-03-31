@@ -12,14 +12,26 @@ import PackageDescription
                 .apt(["libpq-dev"]),
             ])
 #else
+
+#if (arch(i386) || arch(x86_64))
         let libpqLibrary = Target.systemLibrary(
             name: "libpq",
-            path: "Sources/libpq-apple",
+            path: "Sources/libpq-apple-x86",
             pkgConfig: "libpq",
             providers: [
                 .brew(["postgres"]),
                 .apt(["libpq-dev"]),
             ])
+#else
+        let libpqLibrary = Target.systemLibrary(
+            name: "libpq",
+            path: "Sources/libpq-apple-arm",
+            pkgConfig: "libpq",
+            providers: [
+                .brew(["postgres"]),
+                .apt(["libpq-dev"]),
+            ])
+#endif
 #endif
 
 let package = Package(
