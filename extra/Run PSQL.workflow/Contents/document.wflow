@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>AMApplicationBuild</key>
-	<string>492</string>
+	<string>512</string>
 	<key>AMApplicationVersion</key>
 	<string>2.10</string>
 	<key>AMDocumentVersion</key>
@@ -73,7 +73,7 @@ echo "==========================================================================
 
 echo "$1\n\n" &gt;&gt; /tmp/psql.automator.output.txt
 
-echo "$1" | PGPASSWORD=$POSTGRES_PASSWORD /usr/local/bin/psql -h $POSTGRES_IPADDRESS -U postgres -d "$POSTGRES_DATABASE" &gt;&gt; /tmp/psql.automator.output.txt 2&gt;&amp;1
+echo "$1" | PGPASSWORD=$POSTGRES_PASSWORD /opt/homebrew/bin/psql -h $POSTGRES_IPADDRESS -U postgres -d "$POSTGRES_DATABASE" &gt;&gt; /tmp/psql.automator.output.txt 2&gt;&amp;1
 
 /usr/local/bin/mate /tmp/psql.automator.output.txt</string>
 					<key>CheckedForUserDefaultShell</key>
@@ -188,7 +188,7 @@ echo "$1" | PGPASSWORD=$POSTGRES_PASSWORD /usr/local/bin/psql -h $POSTGRES_IPADD
 				<key>isViewVisible</key>
 				<true/>
 				<key>location</key>
-				<string>859.500000:305.000000</string>
+				<string>309.000000:305.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
@@ -222,17 +222,17 @@ echo "$1" | PGPASSWORD=$POSTGRES_PASSWORD /usr/local/bin/psql -h $POSTGRES_IPADD
 		<key>presentationMode</key>
 		<integer>11</integer>
 		<key>processesInput</key>
-		<integer>0</integer>
+		<false/>
 		<key>serviceInputTypeIdentifier</key>
 		<string>com.apple.Automator.text</string>
 		<key>serviceOutputTypeIdentifier</key>
 		<string>com.apple.Automator.nothing</string>
 		<key>serviceProcessesInput</key>
-		<integer>0</integer>
+		<false/>
 		<key>systemImageName</key>
 		<string>NSActionTemplate</string>
 		<key>useAutomaticInputType</key>
-		<integer>1</integer>
+		<true/>
 		<key>workflowTypeIdentifier</key>
 		<string>com.apple.Automator.servicesMenu</string>
 	</dict>
