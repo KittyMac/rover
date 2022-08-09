@@ -10,7 +10,6 @@ brew:
 	brew install libpq
 
 build:
-	./meta/CombinedBuildPhases.sh
 	swift build -v $(SWIFT_BUILD_FLAGS)
 
 clean:
@@ -21,9 +20,3 @@ test:
 
 update:
 	swift package update
-
-xcode:
-	swift package generate-xcodeproj
-	meta/addBuildPhase rover.xcodeproj/project.pbxproj "Rover::Rover" 'export PATH=/opt/homebrew/bin:/opt/homebrew/sbin:$PATH; cd $${SRCROOT}; ./meta/CombinedBuildPhases.sh'
-	sleep 2
-	open rover.xcodeproj

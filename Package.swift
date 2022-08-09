@@ -1,4 +1,4 @@
-// swift-tools-version:5.1.0
+// swift-tools-version:5.6
 
 import PackageDescription
 
@@ -46,7 +46,7 @@ let package = Package(
         .library( name: "Rover", targets: ["Rover"] ),
     ],
     dependencies: [
-		.package(url: "https://github.com/KittyMac/Flynn.git", .upToNextMinor(from: "0.2.0")),
+		.package(url: "https://github.com/KittyMac/Flynn.git", .upToNextMinor(from: "0.3.0")),
         .package(url: "https://github.com/KittyMac/Hitch.git", .upToNextMinor(from: "0.4.0")),
         .package(url: "https://github.com/KittyMac/Chronometer.git", .upToNextMinor(from: "0.1.0"))
     ],
@@ -57,13 +57,16 @@ let package = Package(
                 "Hitch",
                 "Chronometer",
                 "Flynn",
-                "libpq",				
+                "libpq",
 			],
             linkerSettings: [
                 .unsafeFlags([
                     unsafeLibPath,
                     "-lpq"
                 ])
+            ],
+            plugins: [
+                .plugin(name: "FlynnPlugin", package: "Flynn")
             ]
         ),
         
