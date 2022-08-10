@@ -2,8 +2,8 @@
 
 import Foundation
 import Flynn
-import libpq
 import Hitch
+import PostgresClientKit
 
 fileprivate extension String {
     func asBytes() -> UnsafeMutablePointer<Int8> {
@@ -33,7 +33,7 @@ fileprivate extension Array where Element == Int8 {
 
 public final class Rover: Actor {
     public static func ignore(_ result: Result) {
-
+        
     }
 
     public static func warn(_ result: Result) {
@@ -55,12 +55,14 @@ public final class Rover: Actor {
 
     private let queue = DispatchQueue(label: "postgresConnection", qos: .background)
     private var connectionInfo: ConnectionInfo?
-    private var connectionPtr = OpaquePointer(bitPattern: 0)
+    
+    private var connection: PostgresClientKit.Connection?
 
     private var connected: Bool {
-        let localPtr = connectionPtr
-        guard localPtr != nil else { return false }
-        return (PQstatus(localPtr) == CONNECTION_OK)
+        guard let isClosed = connection?.isClosed else {
+            return false
+        }
+        return isClosed == false
     }
 
     deinit {
@@ -74,11 +76,9 @@ public final class Rover: Actor {
     }
 
     private func disconnect() {
-        if connectionPtr != nil {
-            queue.sync {
-                PQfinish(connectionPtr)
-                connectionPtr = OpaquePointer(bitPattern: 0)
-            }
+        queue.sync {
+            connection?.close()
+            connection = nil
         }
     }
 
@@ -86,13 +86,24 @@ public final class Rover: Actor {
                              _ returnCallback: @escaping (Bool) -> Void) {
         queue.sync {
             
-            if connectionPtr != nil {
-                PQfinish(connectionPtr)
-                connectionPtr = OpaquePointer(bitPattern: 0)
+            var configuration = PostgresClientKit.ConnectionConfiguration()
+            configuration.ssl = false
+            configuration.host = info.host ?? "localhost"
+            configuration.database = info.database ?? "postgres"
+            
+            if let port = info.port {
+                configuration.port = port
+            }
+            if let username = info.username {
+                configuration.user = username
+            }
+            if let password = info.password {
+                configuration.credential = .scramSHA256(password: password)
             }
             
+            connection = try? PostgresClientKit.Connection(configuration: configuration)
+                        
             connectionInfo = info
-            connectionPtr = PQconnectdb(info.description)
 
             reconnectTimer?.cancel()
             reconnectTimer = nil
@@ -116,103 +127,152 @@ public final class Rover: Actor {
         disconnect()
     }
 
-    internal func _beRun(_ statement: Hitch,
-                         _ returnCallback: @escaping (Result) -> Void) {
-        _beRun(statement.description, returnCallback)
-    }
-
-    internal func _beRun(_ statement: Hitch,
-                         _ params: [Any?],
-                         _ returnCallback: @escaping (Result) -> Void) {
-        _beRun(statement.description, params, returnCallback)
-    }
-
     private func updateRequestCount(delta: Int) {
         outstandingRequestsLock.lock()
         unsafeOutstandingRequests += delta
         outstandingRequestsLock.unlock()
     }
+    
+    private func result<T>(error: T) -> Result {
+        guard let postgresError = error as? PostgresError else {
+            return Result(error: "failed to convert error to PostgresError: \(error)")
+        }
 
-    internal func _beRun(_ statement: String,
-                         _ returnCallback: @escaping (Result) -> Void) {
+        switch postgresError {
+        case .cleartextPasswordCredentialRequired:
+            return Result(error: "cleartextPasswordCredentialRequired")
+        case .connectionClosed:
+            return Result(error: "connectionClosed")
+        case .connectionPoolClosed:
+            return Result(error: "connectionPoolClosed")
+        case .cursorClosed:
+            return Result(error: "cursorClosed")
+        case .invalidParameterValue(let name, let value, _):
+            return Result(error: "invalidParameterValue \(name) was \(value)")
+        case .invalidUsernameString:
+            return Result(error: "invalidUsernameString")
+        case .invalidPasswordString:
+            return Result(error: "invalidPasswordString")
+        case .md5PasswordCredentialRequired:
+            return Result(error: "md5PasswordCredentialRequired")
+        case .scramSHA256CredentialRequired:
+            return Result(error: "scramSHA256CredentialRequired")
+        case .serverError(let description):
+            return Result(error: description)
+        case .socketError(let cause):
+            return Result(error: cause.localizedDescription)
+        case .sqlError(let notice):
+            return Result(error: notice.message ?? "Unknown SQL Error")
+        case .sslError(let cause):
+            return Result(error: cause.localizedDescription)
+        case .sslNotSupported:
+            return Result(error: "sslNotSupported")
+        case .statementClosed:
+            return Result(error: "statementClosed")
+        case .timedOutAcquiringConnection:
+            return Result(error: "timedOutAcquiringConnection")
+        case .tooManyRequestsForConnections:
+            return Result(error: "tooManyRequestsForConnections")
+        case .trustCredentialRequired:
+            return Result(error: "trustCredentialRequired")
+        case .unsupportedAuthenticationType(let authenticationType):
+            return Result(error: "unsupportedAuthenticationType \(authenticationType)")
+        case .valueConversionError(let value, let type):
+            return Result(error: "valueConversionError \(value) : \(type)")
+        case .valueIsNil:
+            return Result(error: "valueIsNil")
+        }
+    }
+    
+    private func run(_ text: String,
+                     _ params: [Any?],
+                     _ sender: Actor,
+                     _ returnCallback: @escaping (Result) -> Void) {
+        guard let connection = connection else {
+            returnCallback(Result(error: "not connected"))
+            return
+        }
+
         updateRequestCount(delta: 1)
+        
         queue.async {
-            let result = Result(PQexec(self.connectionPtr, statement))
-            self.updateRequestCount(delta: -1)
-            returnCallback(result)
+            do {
+                let paramsAsStrings: [String?] = params.map {
+                    switch $0 {
+                    case let value as Date:
+                        return value.toISO8601()
+                    case let value as String:
+                        return value
+                    case let value as [String]:
+                        return "{\(value.joined(separator: ","))}"
+                    case let value as [Int]:
+                        return "{\(value.map({$0.description}).joined(separator: ","))}"
+                    default:
+                        if let param = $0 {
+                            return "\(param)"
+                        } else {
+                            return nil
+                        }
+                    }
+                }
+                
+                let statement = try connection.prepareStatement(text: text)
+                do {
+                    let cursor = try statement.execute(parameterValues: paramsAsStrings)
+                    
+                    self.queue.suspend()
+                    sender.unsafeSend {
+                        self.updateRequestCount(delta: -1)
+                        returnCallback(Result(cursor: cursor))
+                        statement.close()
+                        cursor.close()
+                        self.queue.resume()
+                    }
+                    
+                } catch {
+                    self.updateRequestCount(delta: -1)
+                    returnCallback(Result(error: error.localizedDescription))
+                    statement.close()
+                }
+            } catch {
+                self.updateRequestCount(delta: -1)
+                returnCallback(Result(error: error.localizedDescription))
+            }
+        }
+    }
+    
+    public func beRun(_ text: Hitch,
+                      _ sender: Actor,
+                      _ returnCallback: @escaping (Result) -> Void) {
+        unsafeSend {
+            self.run(text.description, [], sender, returnCallback)
         }
     }
 
-    internal func _beRun(_ statement: String,
-                         _ params: [Any?],
-                         _ returnCallback: @escaping (Result) -> Void) {
-        updateRequestCount(delta: 1)
-        queue.async {
-            var types: [Oid] = []
-            types.reserveCapacity(params.count)
+    public func beRun(_ text: Hitch,
+                      _ params: [Any?],
+                      _ sender: Actor,
+                      _ returnCallback: @escaping (Result) -> Void) {
+        unsafeSend {
+            self.run(text.description, params, sender, returnCallback)
+        }
+    }
 
-            var formats: [Int32] = []
-            formats.reserveCapacity(params.count)
 
-            var values: [UnsafePointer<Int8>?] = []
-            values.reserveCapacity(params.count)
+    public func beRun(_ text: String,
+                      _ sender: Actor,
+                      _ returnCallback: @escaping (Result) -> Void) {
+        unsafeSend {
+            self.run(text, [], sender, returnCallback)
+        }
+    }
 
-            var lengths: [Int32] = []
-            lengths.reserveCapacity(params.count)
-
-            defer {
-                for value in values {
-                    value?.deallocate()
-                }
-            }
-
-            for param in params {
-                switch param {
-                case let value as Date:
-                    types.append(0)
-                    formats.append(0)
-                    lengths.append(Int32(0))
-                    values.append(value.toISO8601().asBytes())
-                case let value as String:
-                    types.append(0)
-                    formats.append(0)
-                    lengths.append(Int32(0))
-                    values.append(value.asBytes())
-                case let value as [String]:
-                    types.append(0)
-                    formats.append(0)
-                    lengths.append(Int32(0))
-                    values.append("{\(value.joined(separator: ","))}".asBytes())
-                case let value as [Int]:
-                    types.append(0)
-                    formats.append(0)
-                    lengths.append(Int32(0))
-                    values.append("{\(value.map({$0.description}).joined(separator: ","))}".asBytes())
-                default:
-                    types.append(0)
-                    formats.append(0)
-                    lengths.append(Int32(0))
-                    if let param = param {
-                        values.append("\(param)".asBytes())
-                    } else {
-                        values.append(nil)
-                    }
-                }
-            }
-
-            let result = Result(PQexecParams(
-                self.connectionPtr,
-                statement,
-                Int32(params.count),
-                types,
-                values,
-                lengths,
-                formats,
-                Int32(0)
-            ))
-            self.updateRequestCount(delta: -1)
-
-            returnCallback(result)
+    public func beRun(_ text: String,
+                      _ params: [Any?],
+                      _ sender: Actor,
+                      _ returnCallback: @escaping (Result) -> Void) {
+        unsafeSend {
+            self.run(text, params, sender, returnCallback)
         }
     }
 }

@@ -1,8 +1,10 @@
 import Foundation
 import Flynn
-import libpq
 import Hitch
 import Chronometer
+import PostgresClientKit
+
+public typealias Columns = [PostgresValue]
 
 extension Date {
     func toISO8601() -> String {
@@ -29,139 +31,137 @@ extension String {
     }
 }
 
-public final class Result {
-    private var resultPtr = OpaquePointer(bitPattern: 0)
+public final class Result: Sequence, IteratorProtocol {
+    private let cursor: Cursor?
+    public let error: String?
 
-    init(_ resultPtr: OpaquePointer?) {
-        self.resultPtr = resultPtr
+    init(cursor: Cursor) {
+        self.cursor = cursor
+        self.error = nil
+    }
+    
+    init(error: String) {
+        self.cursor = nil
+        self.error = error
     }
 
     deinit {
-        if let resultPtr = resultPtr {
-            PQclear(resultPtr)
-        }
-        resultPtr = OpaquePointer(bitPattern: 0)
+        
     }
 
-    public var error: String? {
-        guard let resultPtr = resultPtr else { return "Invalid result" }
-        if let error = String(validatingUTF8: PQresultErrorMessage(resultPtr)) {
-            return error.count == 0 ? nil : error
-        }
-        return nil
+    public var rowCount: Int {
+        guard let cursor = cursor else { return 0 }
+        return cursor.rowCount ?? 0
     }
+    
+    public func next() -> Columns? {
+        guard let result = cursor?.next() else { return nil }
+        return try? result.get().columns
+    }
+}
 
-    public var rows: Int32 {
-        guard let resultPtr = self.resultPtr else { return 0 }
-        return Int32(PQntuples(resultPtr))
-    }
+public extension Columns {
 
     /// Warning: conversion to straight String() is expensive because it copies the data
-    public func get(string row: Int32, _ col: Int32) -> String? {
-        guard let value = PQgetvalue(resultPtr, row, col) else { return nil }
-        return String(validatingUTF8: value)
+    func get(string col: Int) -> String? {
+        guard col < count else { return nil }
+        return self[col].rawValue
     }
 
-    public func get(halfHitch row: Int32, _ col: Int32) -> HalfHitch? {
-        guard let value = PQgetvalue(resultPtr, row, col) else { return nil }
-        let len = strlen(value)
-
-        return value.withMemoryRebound(to: UInt8.self, capacity: len) { ptr in
-            return HalfHitch(sourceObject: nil, raw: ptr, count: len, from: 0, to: len)
-        }
+    func get(halfHitch col: Int) -> HalfHitch? {
+        guard col < count else { return nil }
+        guard let string = self[col].rawValue else { return nil }
+        return Hitch(string: string).halfhitch()
     }
 
-    public func get(hitch row: Int32, _ col: Int32) -> Hitch? {
-        guard let value = PQgetvalue(resultPtr, row, col) else { return nil }
-        let len = strlen(value)
-
-        return value.withMemoryRebound(to: UInt8.self, capacity: len) { ptr in
-            return Hitch(bytes: ptr, offset: 0, count: len)
-        }
+    func get(hitch col: Int) -> Hitch? {
+        guard col < count else { return nil }
+        guard let string = self[col].rawValue else { return nil }
+        return Hitch(string: string)
     }
 
-    public func get(iso8601 row: Int32, _ col: Int32) -> Date? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(iso8601 col: Int) -> Date? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         return halfHitch.description.toISO8601()
     }
 
-    public func get(date row: Int32, _ col: Int32) -> Date? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(date col: Int) -> Date? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         return halfHitch.description.date()
     }
 
-    public func get(bool row: Int32, _ col: Int32) -> Bool? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(bool col: Int) -> Bool? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         // 116 is 't'
         return halfHitch[0] == 116 && halfHitch.count == 1
     }
 
-    public func get(int row: Int32, _ col: Int32) -> Int? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(int col: Int) -> Int? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         return halfHitch.toInt()
     }
 
-    public func get(int8 row: Int32, _ col: Int32) -> Int8? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(int8 col: Int) -> Int8? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return Int8(int)
     }
 
-    public func get(int16 row: Int32, _ col: Int32) -> Int16? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(int16 col: Int) -> Int16? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return Int16(int)
     }
 
-    public func get(int32 row: Int32, _ col: Int32) -> Int32? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(int32 col: Int) -> Int32? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return Int32(int)
     }
 
-    public func get(int64 row: Int32, _ col: Int32) -> Int64? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(int64 col: Int) -> Int64? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return Int64(int)
     }
 
-    public func get(uint row: Int32, _ col: Int32) -> UInt? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(uint col: Int) -> UInt? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return UInt(int)
     }
 
-    public func get(uint8 row: Int32, _ col: Int32) -> UInt8? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(uint8 col: Int) -> UInt8? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return UInt8(int)
     }
 
-    public func get(uint16 row: Int32, _ col: Int32) -> UInt16? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(uint16 col: Int) -> UInt16? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return UInt16(int)
     }
 
-    public func get(uint32 row: Int32, _ col: Int32) -> UInt32? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(uint32 col: Int) -> UInt32? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return UInt32(int)
     }
 
-    public func get(uint64 row: Int32, _ col: Int32) -> UInt64? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(uint64 col: Int) -> UInt64? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return UInt64(int)
     }
 
-    public func get(double row: Int32, _ col: Int32) -> Double? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(double col: Int) -> Double? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         return halfHitch.toDouble()
     }
 
-    public func get(float row: Int32, _ col: Int32) -> Float? {
-        guard let halfHitch = get(halfHitch: row, col) else { return nil }
+    func get(float col: Int) -> Float? {
+        guard let halfHitch = get(halfHitch: col) else { return nil }
         guard let double = halfHitch.toDouble() else { return nil }
         return Float(double)
     }

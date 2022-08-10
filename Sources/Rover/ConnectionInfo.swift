@@ -1,5 +1,4 @@
 import Flynn
-import libpq
 import Foundation
 
 public struct ConnectionInfo: CustomStringConvertible {

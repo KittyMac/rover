@@ -1,6 +1,24 @@
 {
   "pins" : [
     {
+      "identity" : "bluesocket",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Kitura/BlueSocket.git",
+      "state" : {
+        "revision" : "270f7bd2ea9d81878022d604f4f3577ce6c1703d",
+        "version" : "2.0.3"
+      }
+    },
+    {
+      "identity" : "bluesslservice",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Kitura/BlueSSLService",
+      "state" : {
+        "revision" : "c249988fb748749739144e7f554710552acdc0bd",
+        "version" : "2.0.1"
+      }
+    },
+    {
       "identity" : "chronometer",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/KittyMac/Chronometer.git",
@@ -14,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/KittyMac/Flynn.git",
       "state" : {
-        "revision" : "1228fd43fc27727d0bea6430a8ab2b68548dda2e",
-        "version" : "0.3.6"
+        "revision" : "34d263893adcfd833d61e68b2a2793f74713b46b",
+        "version" : "0.3.9"
       }
     },
     {
@@ -25,6 +43,15 @@
       "state" : {
         "revision" : "eec08edd53a0d433f707d241483e03e59becafe9",
         "version" : "0.4.36"
+      }
+    },
+    {
+      "identity" : "postgresclientkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/codewinsdotcom/PostgresClientKit",
+      "state" : {
+        "revision" : "986df74311a55143994cf9fc1ec773732a4db2a2",
+        "version" : "1.4.4"
       }
     },
     {
