@@ -80,6 +80,9 @@ public final class Rover: Actor {
                 connectionPtr = OpaquePointer(bitPattern: 0)
             }
         }
+        
+        reconnectTimer?.cancel()
+        reconnectTimer = nil
     }
 
     internal func _beConnect(_ info: ConnectionInfo,
@@ -160,12 +163,6 @@ public final class Rover: Actor {
             var lengths: [Int32] = []
             lengths.reserveCapacity(params.count)
 
-            defer {
-                for value in values {
-                    value?.deallocate()
-                }
-            }
-
             for param in params {
                 switch param {
                 case let value as Date:
@@ -210,6 +207,11 @@ public final class Rover: Actor {
                 formats,
                 Int32(0)
             ))
+            
+            for value in values {
+                value?.deallocate()
+            }
+            
             self.updateRequestCount(delta: -1)
 
             returnCallback(result)

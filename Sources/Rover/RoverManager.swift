@@ -46,6 +46,14 @@ public class RoverManager: Actor {
             self.unsafeBusy = outstandingRequests > self.rovers.count * info.busyDelta
         }
     }
+    
+    internal func _beCleanUp() -> Bool {
+        for rover in rovers {
+            rover.beClose()
+        }
+        rovers = []
+        return true
+    }
 
     internal func _beNext() -> Rover? {
         return rovers.min { $0.unsafeOutstandingRequests < $1.unsafeOutstandingRequests }
