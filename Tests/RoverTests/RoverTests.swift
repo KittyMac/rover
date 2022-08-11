@@ -1,6 +1,5 @@
 import XCTest
 import Flynn
-import PostgresClientKit
 
 @testable import Rover
 
@@ -52,19 +51,18 @@ final class RoverTests: XCTestCase {
                         [["Rocco", "John", "Mark", "Anthony"]],
                         Flynn.any) { result in
                 
-                guard let row = result.next() else { XCTFail(); return }
-                XCTAssertEqual(row.get(int: 0), 2)
+                XCTAssertEqual(result.get(int: 0, 0), 2)
                 
                 checkReturn()
             }
             
             manager.beRun("select * from people order by name;", Flynn.any) { result in
                 var names:[String] = []
-                for row in result {
-                    if let name = row.get(string: 1) {
+                for row in 0..<result.rows {
+                    if let name = result.get(string: row, 1) {
                         names.append(name)
                     }
-                    if let date = row.get(date: 3) {
+                    if let date = result.get(date: row, 3) {
                         XCTAssertTrue(date < Date())
                     }
                 }
@@ -92,7 +90,7 @@ final class RoverTests: XCTestCase {
         }
         
         rover.beRun("drop table people", Flynn.any, Rover.ignore)
-         
+        
         rover.beRun("create table if not exists people ( id serial primary key, name text not null, email text, date timestamptz );", Flynn.any, Rover.ignore)
         
         rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Rocco", nil, Date()], Flynn.any, Rover.ignore)
@@ -103,17 +101,16 @@ final class RoverTests: XCTestCase {
                     [["Rocco", "John", "Mark", "Anthony"]],
                     Flynn.any) { result in
             
-            guard let row = result.next() else { XCTFail(); return }
-            XCTAssertEqual(row.get(int: 0), 2)
+            XCTAssertEqual(result.get(int: 0, 0), 2)
         }
         
         rover.beRun("select * from people;", Flynn.any) { result in
             var names:[String] = []
-            for row in result {
-                if let name = row.get(string: 1) {
+            for row in 0..<result.rows {
+                if let name = result.get(string: row, 1) {
                     names.append(name)
                 }
-                if let date = row.get(date: 3) {
+                if let date = result.get(date: row, 3) {
                     XCTAssertTrue(date < Date())
                 }
             }

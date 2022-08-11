@@ -220,15 +220,14 @@ public final class Rover: Actor {
                 do {
                     let cursor = try statement.execute(parameterValues: paramsAsStrings)
                     
-                    self.queue.suspend()
-                    sender.unsafeSend {
-                        self.updateRequestCount(delta: -1)
-                        returnCallback(Result(cursor: cursor))
-                        statement.close()
-                        cursor.close()
-                        self.queue.resume()
-                    }
+                    let result = Result(cursor: cursor)
                     
+                    statement.close()
+                    cursor.close()
+                    
+                    self.updateRequestCount(delta: -1)
+                    returnCallback(result)
+                                        
                 } catch {
                     self.updateRequestCount(delta: -1)
                     returnCallback(Result(error: error.localizedDescription))

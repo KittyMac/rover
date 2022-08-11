@@ -31,137 +31,131 @@ extension String {
     }
 }
 
-public final class Result: Sequence, IteratorProtocol {
-    private let cursor: Cursor?
+public final class Result {
+    public let rows: Int
+    public let results: [Columns]
     public let error: String?
 
     init(cursor: Cursor) {
-        self.cursor = cursor
+        
+        var results: [Columns] = []
+        for row in cursor {
+            if let columns = try? row.get() {
+                results.append(columns.columns)
+            }
+        }
+        self.results = results
+        self.rows = results.count
+        
         self.error = nil
     }
     
     init(error: String) {
-        self.cursor = nil
+        self.results = []
+        self.rows = 0
         self.error = error
     }
 
-    deinit {
-        
-    }
-
-    public var rowCount: Int {
-        guard let cursor = cursor else { return 0 }
-        return cursor.rowCount ?? 0
-    }
-    
-    public func next() -> Columns? {
-        guard let result = cursor?.next() else { return nil }
-        return try? result.get().columns
-    }
-}
-
-public extension Columns {
-
     /// Warning: conversion to straight String() is expensive because it copies the data
-    func get(string col: Int) -> String? {
-        guard col < count else { return nil }
-        return self[col].rawValue
+    func get(string rowIdx: Int, _ colIdx: Int) -> String? {
+        guard rowIdx < results.count else { return nil }
+        let row = results[rowIdx]
+        guard colIdx < row.count else { return nil }
+        return row[colIdx].rawValue
     }
 
-    func get(halfHitch col: Int) -> HalfHitch? {
-        guard col < count else { return nil }
-        guard let string = self[col].rawValue else { return nil }
+    func get(halfHitch rowIdx: Int, _ colIdx: Int) -> HalfHitch? {
+        guard let string = get(string: rowIdx, colIdx) else { return nil }
         return Hitch(string: string).halfhitch()
     }
 
-    func get(hitch col: Int) -> Hitch? {
-        guard col < count else { return nil }
-        guard let string = self[col].rawValue else { return nil }
+    func get(hitch rowIdx: Int, _ colIdx: Int) -> Hitch? {
+        guard let string = get(string: rowIdx, colIdx) else { return nil }
         return Hitch(string: string)
     }
 
-    func get(iso8601 col: Int) -> Date? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(iso8601 row: Int, _ col: Int) -> Date? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         return halfHitch.description.toISO8601()
     }
 
-    func get(date col: Int) -> Date? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(date row: Int, _ col: Int) -> Date? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         return halfHitch.description.date()
     }
 
-    func get(bool col: Int) -> Bool? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(bool row: Int, _ col: Int) -> Bool? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         // 116 is 't'
         return halfHitch[0] == 116 && halfHitch.count == 1
     }
 
-    func get(int col: Int) -> Int? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(int row: Int, _ col: Int) -> Int? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         return halfHitch.toInt()
     }
 
-    func get(int8 col: Int) -> Int8? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(int8 row: Int, _ col: Int) -> Int8? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return Int8(int)
     }
 
-    func get(int16 col: Int) -> Int16? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(int16 row: Int, _ col: Int) -> Int16? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return Int16(int)
     }
 
-    func get(int32 col: Int) -> Int32? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(int32 row: Int, _ col: Int) -> Int32? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return Int32(int)
     }
 
-    func get(int64 col: Int) -> Int64? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(int64 row: Int, _ col: Int) -> Int64? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return Int64(int)
     }
 
-    func get(uint col: Int) -> UInt? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(uint row: Int, _ col: Int) -> UInt? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return UInt(int)
     }
 
-    func get(uint8 col: Int) -> UInt8? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(uint8 row: Int, _ col: Int) -> UInt8? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return UInt8(int)
     }
 
-    func get(uint16 col: Int) -> UInt16? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(uint16 row: Int, _ col: Int) -> UInt16? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return UInt16(int)
     }
 
-    func get(uint32 col: Int) -> UInt32? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(uint32 row: Int, _ col: Int) -> UInt32? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return UInt32(int)
     }
 
-    func get(uint64 col: Int) -> UInt64? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(uint64 row: Int, _ col: Int) -> UInt64? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         guard let int = halfHitch.toInt() else { return nil }
         return UInt64(int)
     }
 
-    func get(double col: Int) -> Double? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(double row: Int, _ col: Int) -> Double? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         return halfHitch.toDouble()
     }
 
-    func get(float col: Int) -> Float? {
-        guard let halfHitch = get(halfHitch: col) else { return nil }
+    func get(float row: Int, _ col: Int) -> Float? {
+        guard let halfHitch = get(halfHitch: row, col) else { return nil }
         guard let double = halfHitch.toDouble() else { return nil }
         return Float(double)
     }
