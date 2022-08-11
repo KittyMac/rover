@@ -101,7 +101,8 @@ public final class Rover: Actor {
             reconnectTimer = nil
 
             if info.autoReconnect {
-                reconnectTimer = Flynn.Timer(timeInterval: info.reconnectTimer, repeats: true, self) { _ in
+                reconnectTimer = Flynn.Timer(timeInterval: info.reconnectTimer, repeats: true, self) { [weak self] _ in
+                    guard let self = self else { return }
                     if self.connected == false {
                         print("reconnecting to database...")
                         self._beConnect(info, returnCallback)

@@ -38,7 +38,8 @@ public class RoverManager: Actor {
             }
         }
 
-        Flynn.Timer(timeInterval: info.busyTimer, repeats: true, self) { (_) in
+        Flynn.Timer(timeInterval: info.busyTimer, repeats: true, self) { [weak self] (_) in
+            guard let self = self else { return }
             var outstandingRequests = 0
             for rover in self.rovers {
                 outstandingRequests += rover.unsafeOutstandingRequests
