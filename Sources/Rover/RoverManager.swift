@@ -30,7 +30,7 @@ public class RoverManager: Actor {
             rovers.append(rover)
             rover.beConnect(info, self) { success in
                 if didCallFirstConnect == false && success == true {
-                    sender.unsafeSend {
+                    sender.unsafeSend { _ in
                         onFirstConnect(self)
                     }
                     didCallFirstConnect = true
