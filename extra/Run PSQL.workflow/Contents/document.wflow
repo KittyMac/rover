@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>AMApplicationBuild</key>
-	<string>512</string>
+	<string>520</string>
 	<key>AMApplicationVersion</key>
 	<string>2.10</string>
 	<key>AMDocumentVersion</key>
@@ -65,15 +65,15 @@
 
 POSTGRESENV=`osascript -e 'tell application "Xcode" to return POSIX path of (file of document of front window as string)'`
 
-source "$POSTGRESENV/../../postgres.env"
+source "$POSTGRESENV/../../../postgres.env"
 
 echo "============================================================================" &gt; /tmp/psql.automator.output.txt
-echo "Executing on $POSTGRES_DATABASE" @ "$POSTGRES_IPADDRESS" &gt;&gt; /tmp/psql.automator.output.txt
+echo "Executing on $POSTGRES_DATABASE" @ "$POSTGRES_IPADDRESS" : "$POSTGRES_PORT" &gt;&gt; /tmp/psql.automator.output.txt
 echo "============================================================================\n" &gt;&gt; /tmp/psql.automator.output.txt
 
 echo "$1\n\n" &gt;&gt; /tmp/psql.automator.output.txt
 
-echo "$1" | PGPASSWORD=$POSTGRES_PASSWORD /opt/homebrew/bin/psql -h $POSTGRES_IPADDRESS -U postgres -d "$POSTGRES_DATABASE" &gt;&gt; /tmp/psql.automator.output.txt 2&gt;&amp;1
+echo "$1" | PGPASSWORD=$POSTGRES_PASSWORD /opt/homebrew/bin/psql -h $POSTGRES_IPADDRESS -p $POSTGRES_PORT -U postgres -d "$POSTGRES_DATABASE" &gt;&gt; /tmp/psql.automator.output.txt 2&gt;&amp;1
 
 /usr/local/bin/mate /tmp/psql.automator.output.txt</string>
 					<key>CheckedForUserDefaultShell</key>
@@ -188,7 +188,7 @@ echo "$1" | PGPASSWORD=$POSTGRES_PASSWORD /opt/homebrew/bin/psql -h $POSTGRES_IP
 				<key>isViewVisible</key>
 				<true/>
 				<key>location</key>
-				<string>309.000000:305.000000</string>
+				<string>1118.000000:1137.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>

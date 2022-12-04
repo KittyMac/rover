@@ -4,14 +4,14 @@
 
 POSTGRESENV=`osascript -e 'tell application "Xcode" to return POSIX path of (file of document of front window as string)'`
 
-source "$POSTGRESENV/../../postgres.env"
+source "$POSTGRESENV/../../../postgres.env"
 
 echo "============================================================================" > /tmp/psql.automator.output.txt
-echo "Executing on $POSTGRES_DATABASE" @ "$POSTGRES_IPADDRESS" >> /tmp/psql.automator.output.txt
+echo "Executing on $POSTGRES_DATABASE" @ "$POSTGRES_IPADDRESS" : "$POSTGRES_PORT" >> /tmp/psql.automator.output.txt
 echo "============================================================================\n" >> /tmp/psql.automator.output.txt
 
 echo "$1\n\n" >> /tmp/psql.automator.output.txt
 
-echo "$1" | PGPASSWORD=$POSTGRES_PASSWORD /opt/homebrew/bin/psql -h $POSTGRES_IPADDRESS -U postgres -d "$POSTGRES_DATABASE" >> /tmp/psql.automator.output.txt 2>&1
+echo "$1" | PGPASSWORD=$POSTGRES_PASSWORD /opt/homebrew/bin/psql -h $POSTGRES_IPADDRESS -p $POSTGRES_PORT -U postgres -d "$POSTGRES_DATABASE" >> /tmp/psql.automator.output.txt 2>&1
 
 /usr/local/bin/mate /tmp/psql.automator.output.txt
