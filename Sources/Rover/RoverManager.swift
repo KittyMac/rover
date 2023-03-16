@@ -27,9 +27,11 @@ public class RoverManager: Actor {
         var didCallFirstConnect = false
         for _ in 0..<maxConnections {
             let rover = Rover()
-            rovers.append(rover)
             rover.beConnect(info, self) { success in
-                if didCallFirstConnect == false && success == true {
+                guard success else { return }
+                
+                self.rovers.append(rover)
+                if didCallFirstConnect == false {
                     sender.unsafeSend { _ in
                         onFirstConnect(self)
                     }
