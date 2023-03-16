@@ -53,7 +53,7 @@ public final class Rover: Actor {
 
     private var reconnectTimer: Flynn.Timer?
 
-    private let queue = DispatchQueue(label: "postgresConnection", qos: .background)
+    private let queue = OperationQueue()
     private var connectionInfo: ConnectionInfo?
     private var connectionPtr = OpaquePointer(bitPattern: 0)
 
@@ -69,16 +69,18 @@ public final class Rover: Actor {
 
     public override init() {
         super.init()
-
+        
+        queue.maxConcurrentOperationCount = 1
         unsafePriority = 99
     }
 
     private func disconnect() {
         if connectionPtr != nil {
-            queue.sync {
-                PQfinish(connectionPtr)
-                connectionPtr = OpaquePointer(bitPattern: 0)
+            queue.addOperation {
+                PQfinish(self.connectionPtr)
+                self.connectionPtr = OpaquePointer(bitPattern: 0)
             }
+            queue.waitUntilAllOperationsAreFinished()
         }
         
         reconnectTimer?.cancel()
@@ -87,21 +89,20 @@ public final class Rover: Actor {
 
     internal func _beConnect(_ info: ConnectionInfo,
                              _ returnCallback: @escaping (Bool) -> Void) {
-        queue.sync {
-            
-            if connectionPtr != nil {
-                PQfinish(connectionPtr)
-                connectionPtr = OpaquePointer(bitPattern: 0)
+        queue.addOperation {
+            if self.connectionPtr != nil {
+                PQfinish(self.connectionPtr)
+                self.connectionPtr = OpaquePointer(bitPattern: 0)
             }
             
-            connectionInfo = info
-            connectionPtr = PQconnectdb(info.description)
+            self.connectionInfo = info
+            self.connectionPtr = PQconnectdb(info.description)
 
-            reconnectTimer?.cancel()
-            reconnectTimer = nil
+            self.reconnectTimer?.cancel()
+            self.reconnectTimer = nil
 
             if info.autoReconnect {
-                reconnectTimer = Flynn.Timer(timeInterval: info.reconnectTimer, repeats: true, self) { [weak self] _ in
+                self.reconnectTimer = Flynn.Timer(timeInterval: info.reconnectTimer, repeats: true, self) { [weak self] _ in
                     guard let self = self else { return }
                     if self.connected == false {
                         print("reconnecting to database...")
@@ -110,10 +111,11 @@ public final class Rover: Actor {
                 }
             }
             
-            if connected {
-                returnCallback(connected)
+            if self.connected {
+                returnCallback(self.connected)
             }
         }
+        queue.waitUntilAllOperationsAreFinished()
     }
 
     internal func _beClose() {
@@ -140,8 +142,18 @@ public final class Rover: Actor {
     internal func _beRun(_ statement: String,
                          _ returnCallback: @escaping (Result) -> Void) {
         updateRequestCount(delta: 1)
-        queue.async {
-            let result = Result(PQexec(self.connectionPtr, statement))
+        queue.addOperation {
+            guard let execResult = PQexec(self.connectionPtr, statement) else {
+                // If PQexec() returns NULL, I read conflicting reports as to whether
+                // the statement succeeded or not. In our case, we are going to assume
+                // it failed and should be retried.
+                self.beRun(statement,
+                           self,
+                           returnCallback)
+                return
+            }
+            
+            let result = Result(execResult)
             self.updateRequestCount(delta: -1)
             returnCallback(result)
         }
@@ -151,7 +163,7 @@ public final class Rover: Actor {
                          _ params: [Any?],
                          _ returnCallback: @escaping (Result) -> Void) {
         updateRequestCount(delta: 1)
-        queue.async {
+        queue.addOperation {
             var types: [Oid] = []
             types.reserveCapacity(params.count)
 
@@ -197,8 +209,8 @@ public final class Rover: Actor {
                     }
                 }
             }
-
-            let result = Result(PQexecParams(
+            
+            guard let execResult = PQexecParams(
                 self.connectionPtr,
                 statement,
                 Int32(params.count),
@@ -207,7 +219,19 @@ public final class Rover: Actor {
                 lengths,
                 formats,
                 Int32(0)
-            ))
+            ) else {
+                // If PQexecParams() returns NULL, I read conflicting reports as to whether
+                // the statement succeeded or not. In our case, we are going to assume
+                // it failed and should be retried.
+                self.beRun(statement,
+                           params,
+                           self,
+                           returnCallback)
+                return
+            }
+
+
+            let result = Result(execResult)
             
             for value in values {
                 value?.deallocate()
