@@ -7,6 +7,11 @@ public typealias kDidConnectCallback = (RoverManager) -> Void
 public class RoverManager: Actor {
 
     public var unsafeBusy: Bool = false
+    public var unsafeConnectionCount: Int {
+        return connectionsCount
+    }
+    
+    private var connectionsCount: Int = 0
 
     private var rovers: [Rover] = []
     private var roundRobin = 0
@@ -31,6 +36,8 @@ public class RoverManager: Actor {
                 guard success else { return }
                 
                 self.rovers.append(rover)
+                self.connectionsCount = self.rovers.count
+                
                 if didCallFirstConnect == false {
                     sender.unsafeSend { _ in
                         onFirstConnect(self)
