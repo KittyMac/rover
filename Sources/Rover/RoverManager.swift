@@ -66,7 +66,8 @@ public class RoverManager: Actor {
     }
 
     internal func _beNext() -> Rover? {
-        return rovers.min { $0.unsafeOutstandingRequests < $1.unsafeOutstandingRequests }
+        roundRobin += 1
+        return rovers[roundRobin % rovers.count]
     }
 
     internal func _beRun(_ statement: String,
