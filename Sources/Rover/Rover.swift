@@ -147,6 +147,8 @@ public final class Rover: Actor {
                 // If PQexec() returns NULL, I read conflicting reports as to whether
                 // the statement succeeded or not. In our case, we are going to assume
                 // it failed and should be retried.
+                self.updateRequestCount(delta: -1)
+                
                 self.beRun(statement,
                            self,
                            returnCallback)
@@ -223,6 +225,8 @@ public final class Rover: Actor {
                 // If PQexecParams() returns NULL, I read conflicting reports as to whether
                 // the statement succeeded or not. In our case, we are going to assume
                 // it failed and should be retried.
+                self.updateRequestCount(delta: -1)
+                
                 self.beRun(statement,
                            params,
                            self,
