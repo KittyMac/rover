@@ -66,6 +66,8 @@ public class RoverManager: Actor {
     }
 
     internal func _beNext() -> Rover? {
+        guard rovers.count > 0 else { return nil }
+        
         roundRobin += 1
         return rovers[roundRobin % rovers.count]
     }
