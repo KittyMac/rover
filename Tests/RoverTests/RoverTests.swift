@@ -27,7 +27,8 @@ final class RoverTests: XCTestCase {
 
         let connectionInfo = ConnectionInfo(host: "127.0.0.1",
                                             username: "postgres",
-                                            password: "12345")
+                                            password: "12345",
+                                            debug: true)
         
         _ = RoverManager(connect: connectionInfo,
                          maxConnections: 10,
@@ -83,7 +84,8 @@ final class RoverTests: XCTestCase {
         
         let connectionInfo = ConnectionInfo(host: "127.0.0.1",
                                             username: "postgres",
-                                            password: "12345")
+                                            password: "12345",
+                                            debug: true)
         
         rover.beConnect(connectionInfo, Flynn.any) { success in
             XCTAssert(success)

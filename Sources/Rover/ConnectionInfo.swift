@@ -12,6 +12,7 @@ public struct ConnectionInfo: CustomStringConvertible {
     let busyDelta: Int
     let busyTimer: TimeInterval
     let reconnectTimer: TimeInterval
+    let debug: Bool
 
     public init(database inDatabase: String? = nil,
                 host inHost: String? = nil,
@@ -21,7 +22,8 @@ public struct ConnectionInfo: CustomStringConvertible {
                 autoReconnect inAutoReconnect: Bool = true,
                 reconnectTimer inReconnectTimer: TimeInterval = 10,
                 busyDelta inBusyDelta: Int = 4,
-                busyTimer inBusyTimer: TimeInterval = 10) {
+                busyTimer inBusyTimer: TimeInterval = 10,
+                debug inDebug: Bool = false) {
         database = inDatabase
         host = inHost
         port = inPort
@@ -31,6 +33,7 @@ public struct ConnectionInfo: CustomStringConvertible {
         busyDelta = inBusyDelta
         busyTimer = inBusyTimer
         reconnectTimer = inReconnectTimer
+        debug = inDebug
     }
 
     public var description: String {

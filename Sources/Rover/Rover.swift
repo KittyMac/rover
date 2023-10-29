@@ -32,6 +32,8 @@ fileprivate extension Array where Element == Int8 {
 }
 
 public final class Rover: Actor {
+    private var debug: Bool = false
+    
     public static func ignore(_ result: Result) {
 
     }
@@ -89,7 +91,12 @@ public final class Rover: Actor {
 
     internal func _beConnect(_ info: ConnectionInfo,
                              _ returnCallback: @escaping (Bool) -> Void) {
+        let start0 = Date()
+        debug = info.debug
+        
         queue.addOperation {
+            let start1 = Date()
+            
             if self.connectionPtr != nil {
                 PQfinish(self.connectionPtr)
                 self.connectionPtr = OpaquePointer(bitPattern: 0)
@@ -97,6 +104,10 @@ public final class Rover: Actor {
             
             self.connectionInfo = info
             self.connectionPtr = PQconnectdb(info.description)
+            
+            if self.debug {
+                print(String(format: "[%0.2f -> %0.2f] SQL connect", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow)))
+            }
 
             self.reconnectTimer?.cancel()
             self.reconnectTimer = nil
@@ -164,8 +175,17 @@ public final class Rover: Actor {
     internal func _beRun(_ statement: String,
                          _ params: [Any?],
                          _ returnCallback: @escaping (Result) -> Void) {
+        let start0 = Date()
+        var statementDebug = ""
+        
+        if debug {
+            statementDebug = statement.prefix(64).description
+        }
+        
         updateRequestCount(delta: 1)
         queue.addOperation {
+            let start1 = Date()
+            
             var types: [Oid] = []
             types.reserveCapacity(params.count)
 
@@ -222,6 +242,9 @@ public final class Rover: Actor {
                 formats,
                 Int32(0)
             ) else {
+                if self.debug {
+                    print(String(format: "[%0.2f -> %0.2f] SQL exec: %@", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow), statementDebug))
+                }
                 // If PQexecParams() returns NULL, I read conflicting reports as to whether
                 // the statement succeeded or not. In our case, we are going to assume
                 // it failed and should be retried.
@@ -234,7 +257,10 @@ public final class Rover: Actor {
                 return
             }
 
-
+            if self.debug {
+                print(String(format: "[%0.2f -> %0.2f] SQL exec: %@", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow), statementDebug))
+            }
+            
             let result = Result(execResult)
             
             for value in values {
