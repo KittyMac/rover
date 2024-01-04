@@ -64,6 +64,37 @@ public final class Result {
         guard let resultPtr = self.resultPtr else { return 0 }
         return Int32(PQntuples(resultPtr))
     }
+    
+    /// Warning: conversion to straight String() is expensive because it copies the data
+    public func trimmed(string row: Int32, _ col: Int32) -> String? {
+        guard resultPtr != nil else { return nil }
+        guard let value = PQgetvalue(resultPtr, row, col) else { return nil }
+        return String(validatingUTF8: value)?.trimmingCharacters(in: .whitespaces)
+    }
+
+    public func trimmed(halfHitch row: Int32, _ col: Int32) -> HalfHitch? {
+        guard resultPtr != nil else { return nil }
+        guard let value = PQgetvalue(resultPtr, row, col) else { return nil }
+        let len = strlen(value)
+
+        let returnValue = value.withMemoryRebound(to: UInt8.self, capacity: len) { ptr in
+            return HalfHitch(sourceObject: nil, raw: ptr, count: len, from: 0, to: len)
+        }
+        
+        return returnValue.trimmed()
+    }
+
+    public func trimmed(hitch row: Int32, _ col: Int32) -> Hitch? {
+        guard resultPtr != nil else { return nil }
+        guard let value = PQgetvalue(resultPtr, row, col) else { return nil }
+        let len = strlen(value)
+
+        let returnValue = value.withMemoryRebound(to: UInt8.self, capacity: len) { ptr in
+            return Hitch(bytes: ptr, offset: 0, count: len)
+        }
+        
+        return returnValue.trim()
+    }
 
     /// Warning: conversion to straight String() is expensive because it copies the data
     public func get(string row: Int32, _ col: Int32) -> String? {
