@@ -69,8 +69,6 @@ public final class Rover: Actor {
 
     deinit {
         disconnect()
-        reconnectTimer?.cancel()
-        reconnectTimer = nil
     }
 
     public override init() {
@@ -88,18 +86,11 @@ public final class Rover: Actor {
             }
             queue.waitUntilAllOperationsAreFinished()
         }
+        
+        reconnectTimer?.cancel()
+        reconnectTimer = nil
     }
     
-    private func disconnectAndReconnect() {
-        if connectionPtr != nil {
-            queue.addOperation {
-                PQfinish(self.connectionPtr)
-                self.connectionPtr = OpaquePointer(bitPattern: 0)
-            }
-            queue.waitUntilAllOperationsAreFinished()
-        }
-    }
-
     internal func _beConnect(_ info: ConnectionInfo,
                              _ returnCallback: @escaping (Bool) -> Void) {
         let start0 = Date()
@@ -119,6 +110,8 @@ public final class Rover: Actor {
             if self.debug {
                 print(String(format: "[%0.2f -> %0.2f] SQL connect", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow)))
             }
+            
+            self.idleDate = Date()
 
             self.reconnectTimer?.cancel()
             self.reconnectTimer = nil
@@ -149,8 +142,6 @@ public final class Rover: Actor {
 
     internal func _beClose() {
         disconnect()
-        reconnectTimer?.cancel()
-        reconnectTimer = nil
     }
 
     internal func _beRun(_ statement: Hitch,
