@@ -54,9 +54,7 @@ public final class Rover: Actor {
     public var unsafeOutstandingRequests = 0
 
     private var reconnectTimer: Flynn.Timer?
-    
-    private var forceReconnectCount = 0
-    private var idleDate = Date()
+    private var forceReconnectTimer: Flynn.Timer?
 
     private let queue = OperationQueue()
     private var connectionInfo: ConnectionInfo?
@@ -88,6 +86,9 @@ public final class Rover: Actor {
             queue.waitUntilAllOperationsAreFinished()
         }
         
+        forceReconnectTimer?.cancel()
+        forceReconnectTimer = nil
+        
         reconnectTimer?.cancel()
         reconnectTimer = nil
     }
@@ -96,6 +97,17 @@ public final class Rover: Actor {
                              _ returnCallback: @escaping (Bool) -> Void) {
         let start0 = Date()
         debug = info.debug
+        
+        forceReconnectTimer?.cancel()
+        forceReconnectTimer = Flynn.Timer(timeInterval: 5 * 60, repeats: true, self) { [weak self] _ in
+            guard let self = self else { return }
+            self.queue.addOperation {
+                if self.connectionPtr != nil {
+                    PQfinish(self.connectionPtr)
+                    self.connectionPtr = PQconnectdb(info.description)
+                }
+            }
+        }
         
         queue.addOperation {
             let start1 = Date()
@@ -112,8 +124,6 @@ public final class Rover: Actor {
                 print(String(format: "[%0.2f -> %0.2f] SQL connect", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow)))
             }
             
-            self.idleDate = Date()
-
             self.reconnectTimer?.cancel()
             self.reconnectTimer = nil
 
@@ -123,17 +133,6 @@ public final class Rover: Actor {
                     if self.connected == false {
                         print("reconnecting to database...")
                         self._beConnect(info, returnCallback)
-                    } else {
-                        // When idle, we periodically disconnect and reconnect. This will free up caches on the
-                        // postgres side which can otherwise grow too large
-                        if self.unsafeOutstandingRequests == 0 &&
-                            abs(self.idleDate.timeIntervalSinceNow) > 5 * 60 {
-                            
-                            self.queue.addOperation {
-                                PQfinish(self.connectionPtr)
-                                self.connectionPtr = PQconnectdb(info.description)
-                            }
-                        }
                     }
                 }
             }
@@ -163,7 +162,6 @@ public final class Rover: Actor {
     private func updateRequestCount(delta: Int) {
         outstandingRequestsLock.lock()
         unsafeOutstandingRequests += delta
-        idleDate = Date()
         outstandingRequestsLock.unlock()
     }
 
@@ -286,14 +284,6 @@ public final class Rover: Actor {
             
             self.updateRequestCount(delta: -1)
             
-            self.forceReconnectCount += 1
-            if self.forceReconnectCount > 1000,
-               let info = self.connectionInfo {
-                self.forceReconnectCount = 0
-                PQfinish(self.connectionPtr)
-                self.connectionPtr = PQconnectdb(info.description)
-            }
-
             returnCallback(result)
         }
     }
