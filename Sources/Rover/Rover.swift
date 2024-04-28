@@ -55,6 +55,7 @@ public final class Rover: Actor {
 
     private var reconnectTimer: Flynn.Timer?
     
+    private var forceReconnectCount = 0
     private var idleDate = Date()
 
     private let queue = OperationQueue()
@@ -127,7 +128,11 @@ public final class Rover: Actor {
                         // postgres side which can otherwise grow too large
                         if self.unsafeOutstandingRequests == 0 &&
                             abs(self.idleDate.timeIntervalSinceNow) > 5 * 60 {
-                            self._beConnect(info, returnCallback)
+                            
+                            self.queue.addOperation {
+                                PQfinish(self.connectionPtr)
+                                self.connectionPtr = PQconnectdb(info.description)
+                            }
                         }
                     }
                 }
@@ -280,6 +285,14 @@ public final class Rover: Actor {
             }
             
             self.updateRequestCount(delta: -1)
+            
+            self.forceReconnectCount += 1
+            if self.forceReconnectCount > 1000,
+               let info = self.connectionInfo {
+                self.forceReconnectCount = 0
+                PQfinish(self.connectionPtr)
+                self.connectionPtr = PQconnectdb(info.description)
+            }
 
             returnCallback(result)
         }
