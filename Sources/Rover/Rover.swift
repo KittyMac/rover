@@ -54,6 +54,8 @@ public final class Rover: Actor {
     public var unsafeOutstandingRequests = 0
 
     private var reconnectTimer: Flynn.Timer?
+    
+    private var idleDate = Date()
 
     private let queue = OperationQueue()
     private var connectionInfo: ConnectionInfo?
@@ -67,6 +69,8 @@ public final class Rover: Actor {
 
     deinit {
         disconnect()
+        reconnectTimer?.cancel()
+        reconnectTimer = nil
     }
 
     public override init() {
@@ -75,7 +79,7 @@ public final class Rover: Actor {
         queue.maxConcurrentOperationCount = 1
         unsafePriority = 99
     }
-
+    
     private func disconnect() {
         if connectionPtr != nil {
             queue.addOperation {
@@ -84,9 +88,6 @@ public final class Rover: Actor {
             }
             queue.waitUntilAllOperationsAreFinished()
         }
-        
-        reconnectTimer?.cancel()
-        reconnectTimer = nil
     }
 
     internal func _beConnect(_ info: ConnectionInfo,
@@ -118,6 +119,13 @@ public final class Rover: Actor {
                     if self.connected == false {
                         print("reconnecting to database...")
                         self._beConnect(info, returnCallback)
+                    } else {
+                        // When idle, we periodically disconnect and reconnect. This will free up caches on the
+                        // postgres side which can otherwise grow too large
+                        if unsafeOutstandingRequests == 0 &&
+                            abs(idleDate.timeIntervalSinceNow) > 5 * 60 {
+                            disconnect()
+                        }
                     }
                 }
             }
@@ -131,6 +139,8 @@ public final class Rover: Actor {
 
     internal func _beClose() {
         disconnect()
+        reconnectTimer?.cancel()
+        reconnectTimer = nil
     }
 
     internal func _beRun(_ statement: Hitch,
@@ -147,6 +157,7 @@ public final class Rover: Actor {
     private func updateRequestCount(delta: Int) {
         outstandingRequestsLock.lock()
         unsafeOutstandingRequests += delta
+        idleDate = Date()
         outstandingRequestsLock.unlock()
     }
 

@@ -1,5 +1,6 @@
 import XCTest
 import Flynn
+import Hitch
 
 @testable import Rover
 
@@ -38,7 +39,7 @@ final class RoverTests: XCTestCase {
             
             sleep(2)
             
-            manager.beRun("create table if not exists people ( id serial primary key, name text not null, email text, date timestamptz );", Flynn.any, Rover.error)
+            manager.beRun("create table if not exists people ( id serial primary key, name char(256) not null, email char(256), date timestamptz );", Flynn.any, Rover.error)
             
             sleep(2)
             
@@ -58,17 +59,21 @@ final class RoverTests: XCTestCase {
             }
             
             manager.beRun("select * from people order by name;", Flynn.any) { result in
-                var names:[String] = []
+                var names:[Hitch] = []
                 for row in 0..<result.rows {
-                    if let name = result.get(string: row, 1) {
+                    if let name = result.trimmed(hitch: row, 1) {
                         names.append(name)
                     }
                     if let date = result.get(date: row, 3) {
                         XCTAssertTrue(date < Date())
                     }
                 }
+                
+                XCTAssertEqual(names[0], "Jane")
+                XCTAssertEqual(names[1], "John")
+                XCTAssertEqual(names[2], "Rocco")
                             
-                XCTAssertEqual(names.joined(separator: ","), "Jane,John,Rocco")
+                //XCTAssertEqual(names.joined(separator: ","), "Jane,John,Rocco")
                 
                 checkReturn()
             }
@@ -93,7 +98,7 @@ final class RoverTests: XCTestCase {
         
         rover.beRun("drop table people", Flynn.any, Rover.ignore)
         
-        rover.beRun("create table if not exists people ( id serial primary key, name text not null, email text, date timestamptz );", Flynn.any, Rover.ignore)
+        rover.beRun("create table if not exists people ( id serial primary key, name char(256) not null, email char(256), date timestamptz );", Flynn.any, Rover.ignore)
         
         rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Rocco", nil, Date()], Flynn.any, Rover.ignore)
         rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["John", "a@b.com", Date()], Flynn.any, Rover.ignore)
@@ -107,17 +112,21 @@ final class RoverTests: XCTestCase {
         }
         
         rover.beRun("select * from people;", Flynn.any) { result in
-            var names:[String] = []
+            var names:[Hitch] = []
             for row in 0..<result.rows {
-                if let name = result.get(string: row, 1) {
+                if let name = result.trimmed(hitch: row, 1) {
                     names.append(name)
                 }
                 if let date = result.get(date: row, 3) {
                     XCTAssertTrue(date < Date())
                 }
             }
-                        
-            XCTAssertEqual(names.joined(separator: ","), "Rocco,John,Jane")
+            
+            XCTAssertEqual(names[0], "Rocco")
+            XCTAssertEqual(names[1], "John")
+            XCTAssertEqual(names[2], "Jane")
+            
+            //XCTAssertEqual(names.joined(separator: ","), "Rocco,John,Jane")
             
             expectation.fulfill()
         }
