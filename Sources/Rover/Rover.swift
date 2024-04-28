@@ -99,7 +99,7 @@ public final class Rover: Actor {
         debug = info.debug
         
         forceReconnectTimer?.cancel()
-        forceReconnectTimer = Flynn.Timer(timeInterval: 5 * 60, repeats: true, self) { [weak self] _ in
+        forceReconnectTimer = Flynn.Timer(timeInterval: 5 * Double.random(in: 60...80), repeats: true, self) { [weak self] _ in
             guard let self = self else { return }
             self.queue.addOperation {
                 if self.connectionPtr != nil {
