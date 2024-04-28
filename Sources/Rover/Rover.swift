@@ -122,8 +122,8 @@ public final class Rover: Actor {
                     } else {
                         // When idle, we periodically disconnect and reconnect. This will free up caches on the
                         // postgres side which can otherwise grow too large
-                        if unsafeOutstandingRequests == 0 &&
-                            abs(idleDate.timeIntervalSinceNow) > 5 * 60 {
+                        if self.unsafeOutstandingRequests == 0 &&
+                            abs(self.idleDate.timeIntervalSinceNow) > 5 * 60 {
                             self.disconnect()
                         }
                     }
