@@ -124,7 +124,7 @@ public final class Rover: Actor {
                         // postgres side which can otherwise grow too large
                         if unsafeOutstandingRequests == 0 &&
                             abs(idleDate.timeIntervalSinceNow) > 5 * 60 {
-                            disconnect()
+                            self.disconnect()
                         }
                     }
                 }
