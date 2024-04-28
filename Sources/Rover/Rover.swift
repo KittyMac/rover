@@ -89,6 +89,16 @@ public final class Rover: Actor {
             queue.waitUntilAllOperationsAreFinished()
         }
     }
+    
+    private func disconnectAndReconnect() {
+        if connectionPtr != nil {
+            queue.addOperation {
+                PQfinish(self.connectionPtr)
+                self.connectionPtr = OpaquePointer(bitPattern: 0)
+            }
+            queue.waitUntilAllOperationsAreFinished()
+        }
+    }
 
     internal func _beConnect(_ info: ConnectionInfo,
                              _ returnCallback: @escaping (Bool) -> Void) {
@@ -124,7 +134,7 @@ public final class Rover: Actor {
                         // postgres side which can otherwise grow too large
                         if self.unsafeOutstandingRequests == 0 &&
                             abs(self.idleDate.timeIntervalSinceNow) > 5 * 60 {
-                            self.disconnect()
+                            self._beConnect(info, returnCallback)
                         }
                     }
                 }

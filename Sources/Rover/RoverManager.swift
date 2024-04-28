@@ -35,6 +35,9 @@ public class RoverManager: Actor {
             rover.beConnect(info, self) { success in
                 guard success else { return }
                 
+                if let idx = self.rovers.firstIndex(of: rover) {
+                    self.rovers.remove(at: idx)
+                }
                 self.rovers.append(rover)
                 self.connectionsCount = self.rovers.count
                 
