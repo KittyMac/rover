@@ -132,7 +132,7 @@ public final class Rover: Actor {
                     guard let self = self else { return }
                     if self.connected == false {
                         print("reconnecting to database...")
-                        self._beConnect(info, returnCallback)
+                        self._beConnect(info) { _ in }
                     }
                 }
             }
