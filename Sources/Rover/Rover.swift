@@ -78,13 +78,13 @@ public final class Rover: Actor {
     }
     
     private func disconnect() {
-        if connectionPtr != nil {
+        if let connectionPtr = connectionPtr {
             queue.addOperation {
-                PQfinish(self.connectionPtr)
-                self.connectionPtr = OpaquePointer(bitPattern: 0)
+                PQfinish(connectionPtr)
             }
             queue.waitUntilAllOperationsAreFinished()
         }
+        connectionPtr = OpaquePointer(bitPattern: 0)
         
         forceReconnectTimer?.cancel()
         forceReconnectTimer = nil
