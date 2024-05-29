@@ -32,6 +32,8 @@ public class RoverManager: Actor {
         var didCallFirstConnect = false
         for _ in 0..<maxConnections {
             let rover = Rover()
+            self.rovers.append(rover)
+            
             rover.beConnect(info, self) { success in
                 guard success else { return }
                 
@@ -56,6 +58,7 @@ public class RoverManager: Actor {
             for rover in self.rovers {
                 outstandingRequests += rover.unsafeOutstandingRequests
             }
+            // TODO: adjust this to handle cases where a specific rover might be over subscribed
             self.unsafeBusy = outstandingRequests > self.rovers.count * info.busyDelta
         }
     }
