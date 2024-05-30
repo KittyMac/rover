@@ -16,6 +16,8 @@ public class RoverManager: Actor {
     private var rovers: [Rover] = []
     private var roundRobin = 0
 
+    private var waitingRovers: [Rover] = []
+    
     public override init() {
 
     }
@@ -32,9 +34,12 @@ public class RoverManager: Actor {
         var didCallFirstConnect = false
         for _ in 0..<maxConnections {
             let rover = Rover()
-            self.rovers.append(rover)
+            self.waitingRovers.append(rover)
             
             rover.beConnect(info, self) { success in
+                if let idx = self.waitingRovers.firstIndex(of: rover) {
+                    self.waitingRovers.remove(at: idx)
+                }
                 guard success else { return }
                 
                 if let idx = self.rovers.firstIndex(of: rover) {
