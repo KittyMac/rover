@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/KittyMac/Flynn.git",
       "state" : {
-        "revision" : "e0910553fad31cc6a7b3e498ecb8af76dae167b0",
-        "version" : "0.4.82"
+        "revision" : "38c38d8bfe3be049e9a2ee28f5c4a028d0cf7c6b",
+        "version" : "0.4.94"
       }
     },
     {
@@ -23,8 +23,44 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/KittyMac/Hitch.git",
       "state" : {
-        "revision" : "733c8e04e04813bc6e3cc105850a4eb657bdacfb",
-        "version" : "0.4.133"
+        "revision" : "328211598c24f356fccbcb5451cc48e21071a963",
+        "version" : "0.4.139"
+      }
+    },
+    {
+      "identity" : "sourcekitten",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jpsim/SourceKitten",
+      "state" : {
+        "revision" : "817dfa6f2e09b0476f3a6c9dbc035991f02f0241",
+        "version" : "0.32.0"
+      }
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser",
+      "state" : {
+        "revision" : "0fbc8848e389af3bb55c182bc19ca9d5dc2f255b",
+        "version" : "1.4.0"
+      }
+    },
+    {
+      "identity" : "swxmlhash",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/drmohundro/SWXMLHash.git",
+      "state" : {
+        "revision" : "6469881a3f30417c5bb02404ea4b69207f297592",
+        "version" : "6.0.0"
+      }
+    },
+    {
+      "identity" : "yams",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jpsim/Yams.git",
+      "state" : {
+        "revision" : "9ff1cc9327586db4e0c8f46f064b6a82ec1566fa",
+        "version" : "4.0.6"
       }
     }
   ],
