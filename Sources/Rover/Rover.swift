@@ -75,10 +75,6 @@ public final class Rover: Actor {
         
         queue.maxConcurrentOperationCount = 1
         unsafePriority = 99
-        
-        queue.addOperation {
-            Thread.current.name = "Rover.PQ"
-        }
     }
     
     private func disconnect() {
