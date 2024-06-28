@@ -58,7 +58,7 @@ public final class Rover: Actor {
 
     private let queue = OperationQueue()
     private var connectionInfo: ConnectionInfo?
-    private var connectionPtr = OpaquePointer(bitPattern: 0)
+    private var connectionPtr: OpaquePointer? = nil
 
     private var connected: Bool {
         let localPtr = connectionPtr
@@ -84,7 +84,7 @@ public final class Rover: Actor {
             }
             queue.waitUntilAllOperationsAreFinished()
         }
-        connectionPtr = OpaquePointer(bitPattern: 0)
+        connectionPtr = nil
         
         forceReconnectTimer?.cancel()
         forceReconnectTimer = nil
@@ -114,7 +114,7 @@ public final class Rover: Actor {
             
             if self.connectionPtr != nil {
                 PQfinish(self.connectionPtr)
-                self.connectionPtr = OpaquePointer(bitPattern: 0)
+                self.connectionPtr = nil
             }
             
             self.connectionInfo = info
@@ -130,15 +130,18 @@ public final class Rover: Actor {
             if info.autoReconnect {
                 self.reconnectTimer = Flynn.Timer(timeInterval: info.reconnectTimer, repeats: true, self) { [weak self] _ in
                     guard let self = self else { return }
-                    if self.connected == false {
-                        print("reconnecting to database...")
-                        self._beConnect(info, returnCallback)
+                    self.queue.addOperation {
+                        if self.connected == false {
+                            print("reconnecting to database...")
+                            self._beConnect(info, returnCallback)
+                        }
                     }
                 }
             }
             
-            if self.connected {
-                returnCallback(self.connected)
+            let isConnected = self.connected
+            if isConnected {
+                returnCallback(isConnected)
             }
         }
         queue.waitUntilAllOperationsAreFinished()
