@@ -77,7 +77,7 @@ public final class Rover: Actor {
         unsafePriority = 99
         
         queue.addOperation {
-            Thread.current.name = #function
+            Thread.current.name = "Rover.PQ"
         }
     }
     
