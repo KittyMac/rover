@@ -98,7 +98,6 @@ public final class Rover: Actor {
         let start0 = Date()
         debug = info.debug
         
-        /*
         forceReconnectTimer?.cancel()
         forceReconnectTimer = Flynn.Timer(timeInterval: 5 * Double.random(in: 60...80), repeats: true, self) { [weak self] _ in
             guard let self = self else { return }
@@ -108,7 +107,7 @@ public final class Rover: Actor {
                     self.connectionPtr = PQconnectdb(info.description)
                 }
             }
-        }*/
+        }
         
         queue.addOperation {
             let start1 = Date()
