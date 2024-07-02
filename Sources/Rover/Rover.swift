@@ -56,7 +56,7 @@ public final class Rover: Actor {
     private var reconnectTimer: Flynn.Timer?
     private var forceReconnectTimer: Flynn.Timer?
 
-    private let queue = TimedOperationQueue()
+    private let queue = OperationQueue()
     private var connectionInfo: ConnectionInfo?
     private var connectionPtr: OpaquePointer? = nil
 
