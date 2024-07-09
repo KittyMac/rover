@@ -167,9 +167,10 @@ public final class Rover: Actor {
         unsafeOutstandingRequests += delta
         outstandingRequestsLock.unlock()
     }
-
-    internal func _beRun(_ statement: String,
-                         _ returnCallback: @escaping (Result) -> Void) {
+    
+    private func internalRun(_ statement: String,
+                             _ retry: Int,
+                             _ returnCallback: @escaping (Result) -> Void) {
         updateRequestCount(delta: 1)
         queue.addOperation {
             guard let execResult = PQexec(self.connectionPtr, statement) else {
@@ -186,13 +187,28 @@ public final class Rover: Actor {
             
             let result = Result(execResult)
             self.updateRequestCount(delta: -1)
+            
+            if retry > 0 {
+                // we should automatically rety deadlocked requests
+                if result.error?.contains("deadlock detected") == true {
+                    self.internalRun(statement, retry - 1, returnCallback)
+                    return
+                }
+            }
+            
             returnCallback(result)
         }
     }
 
     internal func _beRun(_ statement: String,
-                         _ params: [Any?],
                          _ returnCallback: @escaping (Result) -> Void) {
+        internalRun(statement, 3, returnCallback)
+    }
+
+    private func internalRun(_ statement: String,
+                             _ params: [Any?],
+                             _ retry: Int,
+                             _ returnCallback: @escaping (Result) -> Void) {
         let start0 = Date()
         var statementDebug = ""
         
@@ -287,7 +303,21 @@ public final class Rover: Actor {
             
             self.updateRequestCount(delta: -1)
             
+            if retry > 0 {
+                // we should automatically rety deadlocked requests
+                if result.error?.contains("deadlock detected") == true {
+                    self.internalRun(statement, params, retry - 1, returnCallback)
+                    return
+                }
+            }
+            
             returnCallback(result)
         }
+    }
+    
+    internal func _beRun(_ statement: String,
+                         _ params: [Any?],
+                         _ returnCallback: @escaping (Result) -> Void) {
+        internalRun(statement, params, 3, returnCallback)
     }
 }
