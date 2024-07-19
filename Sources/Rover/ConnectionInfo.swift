@@ -49,6 +49,7 @@ public struct ConnectionInfo: CustomStringConvertible {
         }
         info += " connect_timeout=10"
         info += " sslmode=disable"
+        info += " tcp_user_timeout=10000"
         return info
     }
 }
