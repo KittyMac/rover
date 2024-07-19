@@ -102,7 +102,18 @@ public final class Rover: Actor {
         guard connectionPtr == nil else { return }
         
         while connectionPtr == nil {
+            
+            if self.debug {
+                print(String(format: "[%0.2f -> %0.2f] SQL attempt connection", abs(start0.timeIntervalSinceNow), abs(Date().timeIntervalSinceNow)))
+            }
+            
             connectionPtr = PQconnectdb(connectionInfo!.description)
+            if connectionPtr == nil {
+                if self.debug {
+                    print(String(format: "[%0.2f -> %0.2f] PQconnectdb returned nil", abs(start0.timeIntervalSinceNow), abs(Date().timeIntervalSinceNow)))
+                }
+                continue
+            }
             if PQstatus(connectionPtr) != CONNECTION_OK {
                 PQfinish(self.connectionPtr)
                 connectionPtr = nil
