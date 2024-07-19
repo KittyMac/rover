@@ -40,6 +40,9 @@ public class RoverManager: Actor {
                 if let idx = self.waitingRovers.firstIndex(of: rover) {
                     self.waitingRovers.remove(at: idx)
                 }
+                
+                print("waitingRovers: \(self.waitingRovers.count)")
+                
                 guard success else { return }
                 
                 if let idx = self.rovers.firstIndex(of: rover) {
@@ -49,6 +52,7 @@ public class RoverManager: Actor {
                 self.connectionsCount = self.rovers.count
                 
                 if didCallFirstConnect == false {
+                    print("calling first connect: \(self.waitingRovers.count)")
                     sender.unsafeSend { _ in
                         onFirstConnect(self)
                     }
