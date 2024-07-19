@@ -48,6 +48,7 @@ public struct ConnectionInfo: CustomStringConvertible {
             info += " password=\(password)"
         }
         info += " connect_timeout=10"
+        info += " sslmode=disable"
         return info
     }
 }
