@@ -47,7 +47,7 @@ public struct ConnectionInfo: CustomStringConvertible {
         if let password = password {
             info += " password=\(password)"
         }
-        info += " connect_timeout=60"
+        info += " connect_timeout=10"
         return info
     }
 }

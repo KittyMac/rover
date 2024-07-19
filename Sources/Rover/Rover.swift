@@ -53,18 +53,12 @@ public final class Rover: Actor {
     private var outstandingRequestsLock = NSLock()
     public var unsafeOutstandingRequests = 0
 
-    private var reconnectTimer: Flynn.Timer?
-    private var forceReconnectTimer: Flynn.Timer?
-
-    private let queue = OperationQueue()
+    private let queue = TimedOperationQueue()
     private var connectionInfo: ConnectionInfo?
     private var connectionPtr: OpaquePointer? = nil
-
-    private var connected: Bool {
-        let localPtr = connectionPtr
-        guard localPtr != nil else { return false }
-        return (PQstatus(localPtr) == CONNECTION_OK)
-    }
+    
+    private var lastConnectDate: Date = Date.distantPast
+    private let forceReconnectTimeInterval: TimeInterval = 5 * Double.random(in: 60...80)
 
     deinit {
         disconnect()
@@ -81,70 +75,63 @@ public final class Rover: Actor {
         if let connectionPtr = connectionPtr {
             queue.addOperation {
                 PQfinish(connectionPtr)
+                return true
             }
             queue.waitUntilAllOperationsAreFinished()
         }
         connectionPtr = nil
+    }
+    
+    private func confirmConnection() {
+        let start0 = Date()
         
-        forceReconnectTimer?.cancel()
-        forceReconnectTimer = nil
+        let shouldForceReconnect = self.connectionPtr == nil ||
+                                    abs(lastConnectDate.timeIntervalSinceNow) > forceReconnectTimeInterval ||
+                                    PQstatus(connectionPtr) != CONNECTION_OK
         
-        reconnectTimer?.cancel()
-        reconnectTimer = nil
+        if shouldForceReconnect,
+           connectionPtr != nil {
+            if self.debug {
+                print(String(format: "[%0.2f -> %0.2f] SQL force reconnect", abs(start0.timeIntervalSinceNow), abs(Date().timeIntervalSinceNow)))
+            }
+            
+            PQfinish(self.connectionPtr)
+            connectionPtr = nil
+        }
+        
+        guard connectionPtr == nil else { return }
+        
+        while connectionPtr == nil {
+            connectionPtr = PQconnectdb(connectionInfo!.description)
+            if PQstatus(connectionPtr) != CONNECTION_OK {
+                PQfinish(self.connectionPtr)
+                connectionPtr = nil
+                
+                if self.debug {
+                    print(String(format: "[%0.2f -> %0.2f] SQL reconnect", abs(start0.timeIntervalSinceNow), abs(Date().timeIntervalSinceNow)))
+                }
+                sleep(1)
+            }
+        }
+        
+        if self.debug {
+            print(String(format: "[%0.2f -> %0.2f] SQL connect", abs(start0.timeIntervalSinceNow), abs(Date().timeIntervalSinceNow)))
+        }
+        
+        lastConnectDate = Date()
     }
     
     internal func _beConnect(_ info: ConnectionInfo,
                              _ returnCallback: @escaping (Bool) -> Void) {
-        let start0 = Date()
         debug = info.debug
         
-        forceReconnectTimer?.cancel()
-        forceReconnectTimer = Flynn.Timer(timeInterval: 5 * Double.random(in: 60...80), repeats: true, self) { [weak self] _ in
-            guard let self = self else { return }
-            self.queue.addOperation {
-                if self.connectionPtr != nil {
-                    PQfinish(self.connectionPtr)
-                    self.connectionPtr = PQconnectdb(info.description)
-                }
-            }
-        }
-        
-        queue.addOperation {
-            let start1 = Date()
-            
-            if self.connectionPtr != nil {
-                PQfinish(self.connectionPtr)
-                self.connectionPtr = nil
-            }
-            
-            self.connectionInfo = info
-            self.connectionPtr = PQconnectdb(info.description)
-            
-            if self.debug {
-                print(String(format: "[%0.2f -> %0.2f] SQL connect", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow)))
-            }
-            
-            self.reconnectTimer?.cancel()
-            self.reconnectTimer = nil
+        connectionInfo = info
 
-            if info.autoReconnect {
-                self.reconnectTimer = Flynn.Timer(timeInterval: info.reconnectTimer, repeats: true, self) { [weak self] _ in
-                    guard let self = self else { return }
-                    self.queue.addOperation {
-                        if self.connected == false {
-                            print("reconnecting to database...")
-                            self._beConnect(info, returnCallback)
-                        }
-                    }
-                }
-            }
-            
-            let isConnected = self.connected
-            if isConnected {
-                returnCallback(isConnected)
-            }
+        queue.addOperation {
+            self.confirmConnection()
+            returnCallback(true)
+            return true
         }
-        queue.waitUntilAllOperationsAreFinished()
     }
 
     internal func _beClose() {
@@ -171,32 +158,50 @@ public final class Rover: Actor {
     private func internalRun(_ statement: String,
                              _ retry: Int,
                              _ returnCallback: @escaping (Result) -> Void) {
+        let start0 = Date()
+        var statementDebug = ""
+        
+        if debug {
+            statementDebug = statement.prefix(64).description
+        }
+
         updateRequestCount(delta: 1)
-        queue.addOperation {
+        queue.addOperation(retry: retry) {
+            self.confirmConnection()
+            
+            let start1 = Date()
+            
             guard let execResult = PQexec(self.connectionPtr, statement) else {
+                if self.debug {
+                    print(String(format: "[%0.2f -> %0.2f] SQL retry: %@", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow), statementDebug))
+                }
+
                 // If PQexec() returns NULL, I read conflicting reports as to whether
                 // the statement succeeded or not. In our case, we are going to assume
                 // it failed and should be retried.
-                self.updateRequestCount(delta: -1)
-                
-                self.beRun(statement,
-                           self,
-                           returnCallback)
-                return
+                return false
             }
             
             let result = Result(execResult)
-            self.updateRequestCount(delta: -1)
             
-            if retry > 0 {
-                // we should automatically rety deadlocked requests
-                if result.error?.contains("deadlock detected") == true {
-                    self.internalRun(statement, retry - 1, returnCallback)
-                    return
+            if self.debug {
+                print(String(format: "[%0.2f -> %0.2f] SQL exec: %@", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow), statementDebug))
+                if let error = result.error {
+                    print("   \(error)")
                 }
             }
             
+            // we should automatically rety deadlocked requests or fatal error (connection terminated)
+            if  let error = result.error,
+                error.contains("deadlock detected") == true ||
+                error.contains("FATAL") == true {
+                return false
+            }
+            
+            self.updateRequestCount(delta: -1)
             returnCallback(result)
+            
+            return true
         }
     }
 
@@ -217,7 +222,9 @@ public final class Rover: Actor {
         }
         
         updateRequestCount(delta: 1)
-        queue.addOperation {
+        queue.addOperation(retry: retry) {
+            self.confirmConnection()
+            
             let start1 = Date()
             
             var types: [Oid] = []
@@ -277,41 +284,38 @@ public final class Rover: Actor {
                 Int32(0)
             ) else {
                 if self.debug {
-                    print(String(format: "[%0.2f -> %0.2f] SQL exec: %@", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow), statementDebug))
+                    print(String(format: "[%0.2f -> %0.2f] SQL retry: %@", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow), statementDebug))
                 }
                 // If PQexecParams() returns NULL, I read conflicting reports as to whether
                 // the statement succeeded or not. In our case, we are going to assume
                 // it failed and should be retried.
-                self.updateRequestCount(delta: -1)
-                
-                self.beRun(statement,
-                           params,
-                           self,
-                           returnCallback)
-                return
-            }
-
-            if self.debug {
-                print(String(format: "[%0.2f -> %0.2f] SQL exec: %@", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow), statementDebug))
+                return false
             }
             
             let result = Result(execResult)
+            
+            if self.debug {
+                print(String(format: "[%0.2f -> %0.2f] SQL exec: %@", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow), statementDebug))
+                if let error = result.error {
+                    print("   \(error)")
+                }
+            }
             
             for value in values {
                 value?.deallocate()
             }
             
-            self.updateRequestCount(delta: -1)
-            
-            if retry > 0 {
-                // we should automatically rety deadlocked requests
-                if result.error?.contains("deadlock detected") == true {
-                    self.internalRun(statement, params, retry - 1, returnCallback)
-                    return
-                }
+            // we should automatically rety deadlocked requests
+            if  let error = result.error,
+                error.contains("deadlock detected") == true ||
+                error.contains("FATAL") == true {
+                return false
             }
-            
+
+            self.updateRequestCount(delta: -1)
             returnCallback(result)
+            
+            return true
         }
     }
     

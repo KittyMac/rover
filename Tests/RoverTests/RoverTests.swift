@@ -131,7 +131,9 @@ final class RoverTests: XCTestCase {
             expectation.fulfill()
         }
         
-        wait(for: [expectation], timeout: 10.0)
+        wait(for: [expectation], timeout: 600.0)
+        
+        XCTAssertEqual(rover.unsafeOutstandingRequests, 0)
     }
 
     static var allTests = [
