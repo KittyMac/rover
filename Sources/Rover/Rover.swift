@@ -70,7 +70,7 @@ public final class Rover: Actor {
         queue.maxConcurrentOperationCount = 1
         unsafePriority = 99
         
-        Flynn.Timer(timeInterval: forceReconnectTimeInterval - 1, immediate: false, repeats: true, self) { [weak self] timer in
+        Flynn.Timer(timeInterval: 60, immediate: false, repeats: true, self) { [weak self] timer in
             self?.queue.addOperation {
                 self?.confirmConnection()
                 return true
