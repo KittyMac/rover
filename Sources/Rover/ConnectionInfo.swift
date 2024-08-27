@@ -50,6 +50,11 @@ public struct ConnectionInfo: CustomStringConvertible {
         info += " connect_timeout=10"
         info += " sslmode=disable"
         info += " tcp_user_timeout=10000"
+        
+        info += " keepalives=1"
+        info += " keepalives_idle=2"
+        info += " keepalives_interval=3"
+        info += " keepalives_count=3"
         return info
     }
 }

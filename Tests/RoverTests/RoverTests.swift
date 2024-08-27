@@ -32,7 +32,7 @@ final class RoverTests: XCTestCase {
                                             debug: true)
         
         _ = RoverManager(connect: connectionInfo,
-                         maxConnections: 600,
+                         maxConnections: 20,
                          Flynn.any) { manager in
             
             manager.beRun("drop table people", Flynn.any, Rover.error)
