@@ -18,8 +18,10 @@ public class RoverManager: Actor {
 
     private var waitingRovers: [Rover] = []
     
+    private var busyDelta: Int
+    
     public override init() {
-
+        busyDelta = 4
     }
 
     public init(connect info: ConnectionInfo,
@@ -27,6 +29,8 @@ public class RoverManager: Actor {
                 _ sender: Actor,
                 _ onFirstConnect: @escaping kDidConnectCallback) {
 
+        busyDelta = info.busyDelta
+        
         super.init()
 
         unsafePriority = 99
@@ -62,13 +66,14 @@ public class RoverManager: Actor {
             guard let self = self else { return }
             guard self.rovers.count > 0 else { return }
             
-            var outstandingRequests = 0
+            var notBusyRovers = 0
             for rover in self.rovers {
-                outstandingRequests += rover.unsafeOutstandingRequests
+                if rover.unsafeOutstandingRequests < self.busyDelta {
+                    notBusyRovers += 1
+                }
             }
-            outstandingRequests /= self.rovers.count
             
-            self.unsafeBusy = outstandingRequests > self.rovers.count * info.busyDelta
+            self.unsafeBusy = notBusyRovers == 0
         }
     }
     
@@ -83,6 +88,17 @@ public class RoverManager: Actor {
     internal func _beNext() -> Rover? {
         guard rovers.count > 0 else { return nil }
         
+        // find a completely free rover first
+        for rover in rovers where rover.unsafeOutstandingRequests == 0 {
+            return rover
+        }
+        
+        // find a not busy rover second
+        for rover in rovers where rover.unsafeOutstandingRequests < busyDelta {
+            return rover
+        }
+        
+        // round robin the next one
         roundRobin += 1
         return rovers[roundRobin % rovers.count]
     }
