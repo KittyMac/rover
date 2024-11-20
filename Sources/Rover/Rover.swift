@@ -71,7 +71,7 @@ public final class Rover: Actor {
         unsafePriority = 99
         
         Flynn.Timer(timeInterval: 60, immediate: false, repeats: true, self) { [weak self] timer in
-            self?.queue.addOperation {
+            self?.queue.addOperation { _ in
                 self?.confirmConnection()
                 return true
             }
@@ -81,7 +81,7 @@ public final class Rover: Actor {
     
     private func disconnect() {
         if let connectionPtr = connectionPtr {
-            queue.addOperation {
+            queue.addOperation { _ in
                 PQfinish(connectionPtr)
                 return true
             }
@@ -135,7 +135,7 @@ public final class Rover: Actor {
         
         connectionInfo = info
 
-        queue.addOperation {
+        queue.addOperation { _ in
             self.confirmConnection()
             returnCallback(true)
             return true
@@ -166,6 +166,7 @@ public final class Rover: Actor {
     private func internalRun(_ statement: String,
                              _ retry: Int,
                              _ returnCallback: @escaping (Result) -> Void) {
+        
         let start0 = Date()
         var statementDebug = ""
         
@@ -174,8 +175,13 @@ public final class Rover: Actor {
         }
 
         updateRequestCount(delta: 1)
-        queue.addOperation(retry: retry) {
+        queue.addOperation(retry: retry) { retryCount in
             self.confirmConnection()
+            
+            if retryCount == 0 {
+                returnCallback(Result("SQL retry count exceeded"))
+                return true
+            }
             
             let start1 = Date()
             
@@ -230,8 +236,13 @@ public final class Rover: Actor {
         }
         
         updateRequestCount(delta: 1)
-        queue.addOperation(retry: retry) {
+        queue.addOperation(retry: retry) { retryCount in
             self.confirmConnection()
+            
+            if retryCount == 0 {
+                returnCallback(Result("SQL retry count exceeded"))
+                return true
+            }
             
             let start1 = Date()
             
