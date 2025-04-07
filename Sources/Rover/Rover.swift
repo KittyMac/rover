@@ -217,7 +217,7 @@ public final class Rover: Actor {
 
     internal func _beRun(_ statement: String,
                          _ returnCallback: @escaping (Result) -> Void) {
-        internalRun(statement, 3, returnCallback)
+        internalRun(statement, 10, returnCallback)
     }
 
     private func internalRun(_ statement: String,
@@ -333,6 +333,6 @@ public final class Rover: Actor {
     internal func _beRun(_ statement: String,
                          _ params: [Any?],
                          _ returnCallback: @escaping (Result) -> Void) {
-        internalRun(statement, params, 3, returnCallback)
+        internalRun(statement, params, 10, returnCallback)
     }
 }
