@@ -169,18 +169,20 @@ public final class Rover: Actor {
         
         let start0 = Date()
         let statementDebug = statement.prefix(64).description
+        var finalError: String?
 
         updateRequestCount(delta: 1)
         queue.addOperation(retry: retry) { retryCount in
             self.confirmConnection()
             
             if retryCount == 0 {
-                returnCallback(Result("SQL retry count exceeded: \(statementDebug)"))
+                returnCallback(Result("SQL retry count exceeded [\(finalError ?? "unknown")]: \(statementDebug)"))
                 return true
             }
             
             let start1 = Date()
             
+            finalError = nil
             guard let execResult = PQexec(self.connectionPtr, statement) else {
                 if self.debug {
                     print(String(format: "[%0.2f -> %0.2f] SQL retry: %@", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow), statementDebug))
@@ -189,6 +191,7 @@ public final class Rover: Actor {
                 // If PQexec() returns NULL, I read conflicting reports as to whether
                 // the statement succeeded or not. In our case, we are going to assume
                 // it failed and should be retried.
+                finalError = "PQexec returned null"
                 return false
             }
             
@@ -205,6 +208,7 @@ public final class Rover: Actor {
             if  let error = result.error,
                 error.contains("deadlock detected") == true ||
                 error.contains("FATAL") == true {
+                finalError = error
                 return false
             }
             
@@ -226,13 +230,14 @@ public final class Rover: Actor {
                              _ returnCallback: @escaping (Result) -> Void) {
         let start0 = Date()
         let statementDebug = statement.prefix(64).description
-        
+        var finalError: String?
+
         updateRequestCount(delta: 1)
         queue.addOperation(retry: retry) { retryCount in
             self.confirmConnection()
             
             if retryCount == 0 {
-                returnCallback(Result("SQL retry count exceeded: \(statementDebug)"))
+                returnCallback(Result("SQL retry count exceeded [\(finalError ?? "unknown")]: \(statementDebug)"))
                 return true
             }
             
@@ -284,6 +289,7 @@ public final class Rover: Actor {
                 }
             }
             
+            finalError = nil
             guard let execResult = PQexecParams(
                 self.connectionPtr,
                 statement,
@@ -300,6 +306,7 @@ public final class Rover: Actor {
                 // If PQexecParams() returns NULL, I read conflicting reports as to whether
                 // the statement succeeded or not. In our case, we are going to assume
                 // it failed and should be retried.
+                finalError = "PQexec returned null"
                 return false
             }
             
@@ -320,6 +327,7 @@ public final class Rover: Actor {
             if  let error = result.error,
                 error.contains("deadlock detected") == true ||
                 error.contains("FATAL") == true {
+                finalError = error
                 return false
             }
 
