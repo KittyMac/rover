@@ -168,18 +168,14 @@ public final class Rover: Actor {
                              _ returnCallback: @escaping (Result) -> Void) {
         
         let start0 = Date()
-        var statementDebug = ""
-        
-        if debug {
-            statementDebug = statement.prefix(64).description
-        }
+        let statementDebug = statement.prefix(64).description
 
         updateRequestCount(delta: 1)
         queue.addOperation(retry: retry) { retryCount in
             self.confirmConnection()
             
             if retryCount == 0 {
-                returnCallback(Result("SQL retry count exceeded"))
+                returnCallback(Result("SQL retry count exceeded: \(statementDebug)"))
                 return true
             }
             
@@ -229,18 +225,14 @@ public final class Rover: Actor {
                              _ retry: Int,
                              _ returnCallback: @escaping (Result) -> Void) {
         let start0 = Date()
-        var statementDebug = ""
-        
-        if debug {
-            statementDebug = statement.prefix(64).description
-        }
+        let statementDebug = statement.prefix(64).description
         
         updateRequestCount(delta: 1)
         queue.addOperation(retry: retry) { retryCount in
             self.confirmConnection()
             
             if retryCount == 0 {
-                returnCallback(Result("SQL retry count exceeded"))
+                returnCallback(Result("SQL retry count exceeded: \(statementDebug)"))
                 return true
             }
             
