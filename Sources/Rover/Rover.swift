@@ -170,6 +170,7 @@ public final class Rover: Actor {
         let start0 = Date()
         let statementDebug = statement.prefix(64).description
         var finalError: String?
+        var backoff: UInt64 = 500
 
         updateRequestCount(delta: 1)
         queue.addOperation(retry: retry) { retryCount in
@@ -208,6 +209,9 @@ public final class Rover: Actor {
             if  let error = result.error,
                 error.contains("deadlock detected") == true ||
                 error.contains("FATAL") == true {
+                backoff *= 2
+                Flynn.usleep(backoff)
+
                 finalError = error
                 return false
             }
@@ -231,6 +235,7 @@ public final class Rover: Actor {
         let start0 = Date()
         let statementDebug = statement.prefix(64).description
         var finalError: String?
+        var backoff: UInt64 = 500
 
         updateRequestCount(delta: 1)
         queue.addOperation(retry: retry) { retryCount in
@@ -327,6 +332,9 @@ public final class Rover: Actor {
             if  let error = result.error,
                 error.contains("deadlock detected") == true ||
                 error.contains("FATAL") == true {
+                backoff *= 2
+                Flynn.usleep(backoff)
+                
                 finalError = error
                 return false
             }
