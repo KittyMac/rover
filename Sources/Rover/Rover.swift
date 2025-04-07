@@ -192,6 +192,9 @@ public final class Rover: Actor {
                 // If PQexec() returns NULL, I read conflicting reports as to whether
                 // the statement succeeded or not. In our case, we are going to assume
                 // it failed and should be retried.
+                backoff *= 2
+                Flynn.usleep(backoff)
+                
                 finalError = "PQexec returned null"
                 return false
             }
@@ -225,7 +228,7 @@ public final class Rover: Actor {
 
     internal func _beRun(_ statement: String,
                          _ returnCallback: @escaping (Result) -> Void) {
-        internalRun(statement, 10, returnCallback)
+        internalRun(statement, 25, returnCallback)
     }
 
     private func internalRun(_ statement: String,
@@ -311,6 +314,9 @@ public final class Rover: Actor {
                 // If PQexecParams() returns NULL, I read conflicting reports as to whether
                 // the statement succeeded or not. In our case, we are going to assume
                 // it failed and should be retried.
+                backoff *= 2
+                Flynn.usleep(backoff)
+                
                 finalError = "PQexec returned null"
                 return false
             }
@@ -349,6 +355,6 @@ public final class Rover: Actor {
     internal func _beRun(_ statement: String,
                          _ params: [Any?],
                          _ returnCallback: @escaping (Result) -> Void) {
-        internalRun(statement, params, 10, returnCallback)
+        internalRun(statement, params, 25, returnCallback)
     }
 }
