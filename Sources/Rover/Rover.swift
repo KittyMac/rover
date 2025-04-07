@@ -177,7 +177,7 @@ public final class Rover: Actor {
             self.confirmConnection()
             
             if retryCount == 0 {
-                returnCallback(Result("SQL retry count exceeded [\(finalError ?? "unknown")]: \(statementDebug)"))
+                returnCallback(Result("SQL retry count exceeded \(statementDebug) [\(finalError ?? "unknown")]"))
                 return true
             }
             
@@ -245,7 +245,7 @@ public final class Rover: Actor {
             self.confirmConnection()
             
             if retryCount == 0 {
-                returnCallback(Result("SQL retry count exceeded [\(finalError ?? "unknown")]: \(statementDebug)"))
+                returnCallback(Result("SQL retry count exceeded \(statementDebug) [\(finalError ?? "unknown")]"))
                 return true
             }
             
