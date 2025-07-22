@@ -39,9 +39,6 @@ import PackageDescription
 
 let package = Package(
     name: "Rover",
-    platforms: [
-        .macOS(.v10_13)
-    ],
     products: [
         .library( name: "Rover", targets: ["Rover"] ),
     ],

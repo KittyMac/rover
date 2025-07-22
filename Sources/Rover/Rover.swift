@@ -5,6 +5,8 @@ import Flynn
 import libpq
 import Hitch
 
+let maxBackoff = 999_999_999
+
 fileprivate extension String {
     func asBytes() -> UnsafeMutablePointer<Int8> {
         let utf8CString = self.utf8CString
@@ -192,7 +194,9 @@ public final class Rover: Actor {
                 // If PQexec() returns NULL, I read conflicting reports as to whether
                 // the statement succeeded or not. In our case, we are going to assume
                 // it failed and should be retried.
-                backoff *= 2
+                if backoff < maxBackoff {
+                    backoff *= 2
+                }
                 Flynn.usleep(backoff)
                 
                 finalError = "PQexec returned null"
@@ -212,7 +216,9 @@ public final class Rover: Actor {
             if  let error = result.error,
                 error.contains("deadlock detected") == true ||
                 error.contains("FATAL") == true {
-                backoff *= 2
+                if backoff < maxBackoff {
+                    backoff *= 2
+                }
                 Flynn.usleep(backoff)
 
                 finalError = error
@@ -314,7 +320,9 @@ public final class Rover: Actor {
                 // If PQexecParams() returns NULL, I read conflicting reports as to whether
                 // the statement succeeded or not. In our case, we are going to assume
                 // it failed and should be retried.
-                backoff *= 2
+                if backoff < maxBackoff {
+                    backoff *= 2
+                }
                 Flynn.usleep(backoff)
                 
                 finalError = "PQexec returned null"
@@ -338,7 +346,9 @@ public final class Rover: Actor {
             if  let error = result.error,
                 error.contains("deadlock detected") == true ||
                 error.contains("FATAL") == true {
-                backoff *= 2
+                if backoff < maxBackoff {
+                    backoff *= 2
+                }
                 Flynn.usleep(backoff)
                 
                 finalError = error
