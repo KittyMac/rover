@@ -89,12 +89,12 @@ public class RoverManager: Actor {
         guard rovers.count > 0 else { return nil }
         
         // find a completely free rover first
-        for rover in rovers where rover.unsafeOutstandingRequests == 0 {
+        for rover in rovers.shuffled() where rover.unsafeOutstandingRequests == 0 {
             return rover
         }
         
         // find a not busy rover second
-        for rover in rovers where rover.unsafeOutstandingRequests < busyDelta {
+        for rover in rovers.shuffled() where rover.unsafeOutstandingRequests < busyDelta {
             return rover
         }
         

@@ -60,7 +60,7 @@ public final class Rover: Actor {
     private var connectionPtr: OpaquePointer? = nil
     
     private var lastConnectDate: Date = Date.distantPast
-    private let forceReconnectTimeInterval: TimeInterval = 5 * Double.random(in: 60...80)
+    private let forceReconnectTimeInterval: TimeInterval = 30 * Double.random(in: 60...540)
 
     deinit {
         disconnect()
