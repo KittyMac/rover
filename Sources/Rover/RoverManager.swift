@@ -84,8 +84,12 @@ public class RoverManager: Actor {
         rovers = []
         return true
     }
+    
+    internal func _beNext() -> Rover? {
+        return _beNext(limit: 0)
+    }
 
-    internal func _beNext(limit: Int = 0) -> Rover? {
+    internal func _beNext(limit: Int) -> Rover? {
         guard rovers.count > 0 else { return nil }
         
         var subrovers = rovers
