@@ -85,22 +85,27 @@ public class RoverManager: Actor {
         return true
     }
 
-    internal func _beNext() -> Rover? {
+    internal func _beNext(limit: Int = 0) -> Rover? {
         guard rovers.count > 0 else { return nil }
         
+        var subrovers = rovers
+        if limit > 0 {
+            subrovers = Array(rovers[..<limit])
+        }
+        
         // find a completely free rover first
-        for rover in rovers.shuffled() where rover.unsafeOutstandingRequests == 0 {
+        for rover in subrovers.shuffled() where rover.unsafeOutstandingRequests == 0 {
             return rover
         }
         
         // find a not busy rover second
-        for rover in rovers.shuffled() where rover.unsafeOutstandingRequests < busyDelta {
+        for rover in subrovers.shuffled() where rover.unsafeOutstandingRequests < busyDelta {
             return rover
         }
         
         // round robin the next one
         roundRobin += 1
-        return rovers[roundRobin % rovers.count]
+        return subrovers[roundRobin % subrovers.count]
     }
 
     internal func _beRun(_ statement: String,
