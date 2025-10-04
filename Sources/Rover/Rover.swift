@@ -54,6 +54,9 @@ public final class Rover: Actor {
 
     private var outstandingRequestsLock = NSLock()
     public var unsafeOutstandingRequests = 0
+    public func unsafeIsConnected() -> Bool {
+        return connectionPtr != nil
+    }
 
     private let queue = TimedOperationQueue()
     private var connectionInfo: ConnectionInfo?
