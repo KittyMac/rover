@@ -75,7 +75,7 @@ public final class Rover: Actor {
         queue.maxConcurrentOperationCount = 1
         unsafePriority = 99
         
-        Flynn.Timer(timeInterval: 60, immediate: false, repeats: true, self) { [weak self] timer in
+        Flynn.Timer(timeInterval: 15, immediate: false, repeats: true, self) { [weak self] timer in
             self?.queue.addOperation { _ in
                 self?.confirmConnection(allowIdle: true)
                 return true
@@ -100,7 +100,8 @@ public final class Rover: Actor {
         
         let shouldForceReconnect = self.connectionPtr == nil ||
                                     abs(lastConnectDate.timeIntervalSinceNow) > forceReconnectTimeInterval ||
-                                    PQstatus(connectionPtr) != CONNECTION_OK
+                                    PQstatus(connectionPtr) != CONNECTION_OK ||
+                                    (allowIdle && unsafeOutstandingRequests == 0)
         
         if shouldForceReconnect,
            connectionPtr != nil {
