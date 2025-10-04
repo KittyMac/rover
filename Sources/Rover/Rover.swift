@@ -74,7 +74,7 @@ public final class Rover: Actor {
         
         Flynn.Timer(timeInterval: 60, immediate: false, repeats: true, self) { [weak self] timer in
             self?.queue.addOperation { _ in
-                self?.confirmConnection()
+                self?.confirmConnection(allowIdle: true)
                 return true
             }
         }
@@ -92,7 +92,7 @@ public final class Rover: Actor {
         connectionPtr = nil
     }
     
-    private func confirmConnection() {
+    private func confirmConnection(allowIdle: Bool) {
         let start0 = Date()
         
         let shouldForceReconnect = self.connectionPtr == nil ||
@@ -107,6 +107,10 @@ public final class Rover: Actor {
             
             PQfinish(self.connectionPtr)
             connectionPtr = nil
+            
+            if allowIdle {
+                return
+            }
         }
         
         guard connectionPtr == nil else { return }
@@ -138,7 +142,7 @@ public final class Rover: Actor {
         connectionInfo = info
 
         queue.addOperation { _ in
-            self.confirmConnection()
+            self.confirmConnection(allowIdle: false)
             returnCallback(true)
             return true
         }
@@ -176,7 +180,7 @@ public final class Rover: Actor {
 
         updateRequestCount(delta: 1)
         queue.addOperation(retry: retry) { retryCount in
-            self.confirmConnection()
+            self.confirmConnection(allowIdle: false)
             
             if retryCount == 0 {
                 returnCallback(Result("SQL retry count exceeded \(statementDebug) [\(finalError ?? "unknown")]"))
@@ -248,7 +252,7 @@ public final class Rover: Actor {
 
         updateRequestCount(delta: 1)
         queue.addOperation(retry: retry) { retryCount in
-            self.confirmConnection()
+            self.confirmConnection(allowIdle: false)
             
             if retryCount == 0 {
                 returnCallback(Result("SQL retry count exceeded \(statementDebug) [\(finalError ?? "unknown")]"))

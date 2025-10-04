@@ -135,6 +135,30 @@ final class RoverTests: XCTestCase {
         
         XCTAssertEqual(rover.unsafeOutstandingRequests, 0)
     }
+    
+    func testIdleConnectionDrops() {
+        
+        let expectation = XCTestExpectation(description: "Perform some actions on the postgres server")
+        
+        let rover = Rover()
+        
+        let connectionInfo = ConnectionInfo(host: "127.0.0.1",
+                                            username: "postgres",
+                                            password: "12345",
+                                            debug: true)
+        
+        rover.beConnect(connectionInfo, Flynn.any) { success in
+            XCTAssert(success)
+        }
+        
+        while true {
+            rover.beRun("drop table people", Flynn.any, Rover.ignore)
+            
+            Flynn.sleep(45)
+        }
+        
+        wait(for: [expectation], timeout: 600.0)
+    }
 
     static var allTests = [
         ("testConnection", testConnection),

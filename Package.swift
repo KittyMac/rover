@@ -71,6 +71,12 @@ let package = Package(
         
         .testTarget(
             name: "RoverTests",
-            dependencies: ["Rover"]),
+            dependencies: ["Rover"],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-L/opt/homebrew/opt/libpq/lib/",
+                    "-lpq"
+                ])
+            ]),
     ]
 )
