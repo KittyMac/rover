@@ -110,13 +110,10 @@ public final class Rover: Actor {
             
             PQfinish(self.connectionPtr)
             connectionPtr = nil
-            
-            if allowIdle {
-                return
-            }
         }
         
-        guard connectionPtr == nil else { return }
+        guard connectionPtr == nil,
+              allowIdle == false else { return }
         
         while connectionPtr == nil {
             connectionPtr = PQconnectdb(connectionInfo!.description)
