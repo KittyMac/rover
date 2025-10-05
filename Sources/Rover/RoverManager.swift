@@ -107,6 +107,12 @@ public class RoverManager: Actor {
             return rover
         }
         
+        
+        // find a completely free rover first (regardless of connected status)
+        for rover in subrovers.shuffled() where rover.unsafeOutstandingRequests == 0 {
+            return rover
+        }
+        
         // find a not busy rover (regardless of connected status)
         for rover in subrovers.shuffled() where rover.unsafeOutstandingRequests < busyDelta {
             return rover

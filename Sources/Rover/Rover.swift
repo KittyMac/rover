@@ -54,6 +54,7 @@ public final class Rover: Actor {
 
     private var outstandingRequestsLock = NSLock()
     public var unsafeOutstandingRequests = 0
+    private var dateOfLastActivity = Date.distantPast
     public func unsafeIsConnected() -> Bool {
         return connectionPtr != nil
     }
@@ -101,9 +102,10 @@ public final class Rover: Actor {
         let shouldForceReconnect = self.connectionPtr == nil ||
                                     abs(lastConnectDate.timeIntervalSinceNow) > forceReconnectTimeInterval ||
                                     PQstatus(connectionPtr) != CONNECTION_OK ||
-                                    (allowIdle && unsafeOutstandingRequests == 0)
+                                    (allowIdle && abs(dateOfLastActivity.timeIntervalSinceNow) > 60)
         
         if shouldForceReconnect,
+           unsafeOutstandingRequests == 0,
            connectionPtr != nil {
             if self.debug {
                 print(String(format: "[%0.2f -> %0.2f] SQL force reconnect", abs(start0.timeIntervalSinceNow), abs(Date().timeIntervalSinceNow)))
@@ -167,6 +169,7 @@ public final class Rover: Actor {
     private func updateRequestCount(delta: Int) {
         outstandingRequestsLock.lock()
         unsafeOutstandingRequests += delta
+        dateOfLastActivity = Date()
         outstandingRequestsLock.unlock()
     }
     
