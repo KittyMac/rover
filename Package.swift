@@ -2,6 +2,11 @@
 
 import PackageDescription
 
+func packageRoot() -> String {
+    let fileURL = URL(fileURLWithPath: #file)
+    return fileURL.deletingLastPathComponent().path
+}
+
 #if os(Linux)
         let libpqLibrary = Target.systemLibrary(
             name: "libpq",
@@ -23,7 +28,7 @@ import PackageDescription
                 .brew(["postgres"]),
                 .apt(["libpq-dev"]),
             ])
-		let unsafeLibPath = "-Llib/"
+        let unsafeLibPath = "-L" + packageRoot() + "/lib"
 #else
         let libpqLibrary = Target.systemLibrary(
             name: "libpq",
@@ -33,7 +38,7 @@ import PackageDescription
                 .brew(["postgres"]),
                 .apt(["libpq-dev"]),
             ])
-		let unsafeLibPath = "-Llib/"
+        let unsafeLibPath = "-L" + packageRoot() + "/lib"
 #endif
 #endif
 
@@ -74,7 +79,7 @@ let package = Package(
             dependencies: ["Rover"],
             linkerSettings: [
                 .unsafeFlags([
-                    "-L/opt/homebrew/opt/libpq/lib/",
+                    unsafeLibPath,
                     "-lpq"
                 ])
             ]),
