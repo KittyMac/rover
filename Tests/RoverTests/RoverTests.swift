@@ -60,18 +60,21 @@ final class RoverTests: XCTestCase {
             
             manager.beRun("select * from people order by name;", Flynn.any) { result in
                 var names:[Hitch] = []
-                for row in 0..<result.rows {
+                
+                result.syncOOB(count: 32, timeout: 5) { row, synchronized in
                     if let name = result.trimmed(hitch: row, 1) {
-                        names.append(name)
+                        synchronized {
+                            names.append(name)
+                        }
                     }
                     if let date = result.get(date: row, 3) {
                         XCTAssertTrue(date < Date())
                     }
                 }
-                
-                XCTAssertEqual(names[0], "Jane")
-                XCTAssertEqual(names[1], "John")
-                XCTAssertEqual(names[2], "Rocco")
+                                
+                XCTAssertEqual(names.contains("Jane"), true)
+                XCTAssertEqual(names.contains("John"), true)
+                XCTAssertEqual(names.contains("Rocco"), true)
                             
                 //XCTAssertEqual(names.joined(separator: ","), "Jane,John,Rocco")
                 

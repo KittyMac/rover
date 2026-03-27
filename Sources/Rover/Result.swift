@@ -33,6 +33,27 @@ public final class Result {
     private var resultPtr = OpaquePointer(bitPattern: 0)
     
     private let overrideError: String?
+    
+    func syncOOB(count: Int = 0,
+                 timeout: TimeInterval,
+                 _ block: @escaping (Int32, @escaping synchronizedBlock) -> ()) {
+        let queue = TimedOperationQueue()
+        queue.maxConcurrentOperationCount = min(128, count > 0 && count < Flynn.cores ? count : Flynn.cores)
+        
+        let lock = NSLock()
+        for item in 0..<self.rows {
+            queue.addOperation(timeout: timeout) { retryCount in
+                block(item) { synchronized in
+                    lock.lock()
+                    synchronized()
+                    lock.unlock()
+                }
+                return true
+            }
+        }
+        
+        queue.waitUntilAllOperationsAreFinished()
+    }
 
     init(_ resultPtr: OpaquePointer?) {
         self.resultPtr = resultPtr
