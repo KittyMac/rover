@@ -34,9 +34,9 @@ public final class Result {
     
     private let overrideError: String?
     
-    func syncOOB(count: Int = 0,
-                 timeout: TimeInterval,
-                 _ block: @escaping (Int32, @escaping synchronizedBlock) -> ()) {
+    public func syncOOB(count: Int = 0,
+                        timeout: TimeInterval,
+                        _ block: @escaping (Int32, @escaping synchronizedBlock) -> ()) {
         let queue = TimedOperationQueue()
         queue.maxConcurrentOperationCount = min(128, count > 0 && count < Flynn.cores ? count : Flynn.cores)
         
