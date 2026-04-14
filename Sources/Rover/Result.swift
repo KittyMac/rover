@@ -99,7 +99,7 @@ public final class Result {
         let len = strlen(value)
 
         let returnValue = value.withMemoryRebound(to: UInt8.self, capacity: len) { ptr in
-            return HalfHitch(sourceObject: nil, raw: ptr, count: len, from: 0, to: len)
+            return HalfHitch(sourceObject: self, raw: ptr, count: len, from: 0, to: len)
         }
         
         return returnValue.trimmed()
@@ -130,7 +130,7 @@ public final class Result {
         let len = strlen(value)
 
         return value.withMemoryRebound(to: UInt8.self, capacity: len) { ptr in
-            return HalfHitch(sourceObject: nil, raw: ptr, count: len, from: 0, to: len)
+            return HalfHitch(sourceObject: self, raw: ptr, count: len, from: 0, to: len)
         }
     }
 

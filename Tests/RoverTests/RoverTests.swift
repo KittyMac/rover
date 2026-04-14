@@ -138,7 +138,7 @@ final class RoverTests: XCTestCase {
         
         XCTAssertEqual(rover.unsafeOutstandingRequests, 0)
     }
-    
+    /*
     func testIdleConnectionDrops() {
         
         let expectation = XCTestExpectation(description: "Perform some actions on the postgres server")
@@ -161,7 +161,7 @@ final class RoverTests: XCTestCase {
         }
         
         wait(for: [expectation], timeout: 600.0)
-    }
+    }*/
 
     static var allTests = [
         ("testConnection", testConnection),

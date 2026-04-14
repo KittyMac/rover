@@ -67,7 +67,10 @@ public final class Rover: Actor {
     private let forceReconnectTimeInterval: TimeInterval = 30 * Double.random(in: 60...540)
 
     deinit {
-        disconnect()
+        if let connectionPtr = connectionPtr {
+            PQfinish(connectionPtr)
+        }
+        connectionPtr = nil
     }
 
     public override init() {
