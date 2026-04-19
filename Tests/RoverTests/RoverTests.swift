@@ -138,6 +138,42 @@ final class RoverTests: XCTestCase {
         
         XCTAssertEqual(rover.unsafeOutstandingRequests, 0)
     }
+    
+    func testCopyConnection() {
+        let expectation = XCTestExpectation(description: "Perform some actions on the postgres server")
+        
+        let rover = Rover()
+        
+        let connectionInfo = ConnectionInfo(host: "127.0.0.1",
+                                            username: "postgres",
+                                            password: "12345",
+                                            debug: true)
+        
+        rover.beConnect(connectionInfo, Flynn.any) { success in
+            XCTAssert(success)
+        }
+        
+        rover.beRun("drop table people", Flynn.any, Rover.ignore)
+        
+        rover.beRun("create table if not exists people ( id serial primary key, name char(256) not null, email char(256), date timestamptz );", Flynn.any, Rover.ignore)
+        
+        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Rocco", nil, Date()], Flynn.any, Rover.ignore)
+        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["John", "a@b.com", Date()], Flynn.any, Rover.ignore)
+        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Jane", nil, Date()], Flynn.any, Rover.ignore)
+        
+        rover.beCopy(toGzipFile: "/tmp/people.csv.gz",
+                     "COPY people TO STDOUT WITH (FORMAT csv, HEADER)",
+                    [],
+                    Flynn.any) { result in
+            
+            expectation.fulfill()
+        }
+        
+        wait(for: [expectation], timeout: 600.0)
+        
+        XCTAssertEqual(rover.unsafeOutstandingRequests, 0)
+    }
+    
     /*
     func testIdleConnectionDrops() {
         

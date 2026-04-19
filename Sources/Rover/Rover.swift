@@ -4,6 +4,7 @@ import Foundation
 import Flynn
 import libpq
 import Hitch
+import zlib
 
 let maxBackoff = 999_999_999
 
@@ -377,5 +378,183 @@ public final class Rover: Actor {
                          _ params: [Any?],
                          _ returnCallback: @escaping (Result) -> Void) {
         internalRun(statement, params, 100, returnCallback)
+    }
+    
+    
+    
+    internal func _beCopy(toGzipFile: String,
+                          _ statement: String,
+                          _ params: [Any?],
+                          _ returnCallback: @escaping (String?) -> Void) {
+        let start0 = Date()
+        let statementDebug = statement.prefix(64).description
+        var finalError: String?
+        var backoff: UInt64 = 500
+        
+        guard let outputHandle = SafeFileHandle(forWritingAtPath: toGzipFile) else {
+            returnCallback("Failed to open file for writing at \(toGzipFile)")
+            return
+        }
+
+        // Initialize zlib for gzip compression
+        var stream = z_stream()
+        let initResult = deflateInit2_(&stream,
+                                       Z_DEFAULT_COMPRESSION,
+                                       Z_DEFLATED,
+                                       15 + 16,  // 15 = default window bits, +16 = gzip format
+                                       8,        // default memory level
+                                       Z_DEFAULT_STRATEGY,
+                                       ZLIB_VERSION,
+                                       Int32(MemoryLayout<z_stream>.size))
+        guard initResult == Z_OK else {
+            returnCallback("Failed to initialize gzip compression")
+            return
+        }
+        
+        let compressBufferSize = 256 * 1024
+        let compressBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: compressBufferSize)
+        defer { compressBuffer.deallocate() }
+
+        updateRequestCount(delta: 1)
+        queue.addOperation(retry: 1) { retryCount in
+            self.confirmConnection(allowIdle: false)
+            
+            if retryCount == 0 {
+                deflateEnd(&stream)
+                returnCallback("SQL retry count exceeded \(statementDebug) [\(finalError ?? "unknown")]")
+                return true
+            }
+            
+            let start1 = Date()
+            
+            var types: [Oid] = []
+            types.reserveCapacity(params.count)
+
+            var formats: [Int32] = []
+            formats.reserveCapacity(params.count)
+
+            var values: [UnsafePointer<Int8>?] = []
+            values.reserveCapacity(params.count)
+
+            var lengths: [Int32] = []
+            lengths.reserveCapacity(params.count)
+
+            for param in params {
+                switch param {
+                case let value as Date:
+                    types.append(0)
+                    formats.append(0)
+                    lengths.append(Int32(0))
+                    values.append(value.toISO8601().asBytes())
+                case let value as String:
+                    types.append(0)
+                    formats.append(0)
+                    lengths.append(Int32(0))
+                    values.append(value.asBytes())
+                case let value as [String]:
+                    types.append(0)
+                    formats.append(0)
+                    lengths.append(Int32(0))
+                    values.append("{\(value.joined(separator: ","))}".asBytes())
+                case let value as [Int]:
+                    types.append(0)
+                    formats.append(0)
+                    lengths.append(Int32(0))
+                    values.append("{\(value.map({$0.description}).joined(separator: ","))}".asBytes())
+                default:
+                    types.append(0)
+                    formats.append(0)
+                    lengths.append(Int32(0))
+                    if let param = param {
+                        values.append("\(param)".asBytes())
+                    } else {
+                        values.append(nil)
+                    }
+                }
+            }
+            
+            finalError = nil
+            guard let execResult = PQexecParams(
+                self.connectionPtr,
+                statement,
+                Int32(params.count),
+                types,
+                values,
+                lengths,
+                formats,
+                Int32(0)
+            ) else {
+                if self.debug {
+                    print(String(format: "[%0.2f -> %0.2f] SQL retry: %@", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow), statementDebug))
+                }
+                if backoff < maxBackoff {
+                    backoff *= 2
+                }
+                Flynn.usleep(backoff)
+                
+                finalError = "PQexec returned null"
+                return false
+            }
+            
+            if (PQresultStatus(execResult) != PGRES_COPY_OUT) {
+                PQclear(execResult);
+                deflateEnd(&stream)
+                return false;
+            }
+            PQclear(execResult);
+            
+            var buffer: UnsafeMutablePointer<CChar>? = nil
+            while true {
+                let nbytes = PQgetCopyData(self.connectionPtr, &buffer, 0)
+                if nbytes > 0 {
+                    if let buffer = buffer {
+                        // Compress the chunk and write to file
+                        stream.next_in = UnsafeMutablePointer<UInt8>(OpaquePointer(buffer))
+                        stream.avail_in = UInt32(nbytes)
+                        
+                        while stream.avail_in > 0 {
+                            stream.next_out = compressBuffer
+                            stream.avail_out = UInt32(compressBufferSize)
+                            deflate(&stream, Z_NO_FLUSH)
+                            let produced = compressBufferSize - Int(stream.avail_out)
+                            if produced > 0 {
+                                outputHandle.writeData(Data(bytes: compressBuffer, count: produced))
+                            }
+                        }
+                        
+                        PQfreemem(buffer)
+                    }
+                } else if nbytes == -1 {
+                    break  // done
+                } else {
+                    let msg = String(cString: PQerrorMessage(self.connectionPtr))
+                    deflateEnd(&stream)
+                    returnCallback(msg)
+                    return true
+                }
+            }
+            
+            // Flush remaining compressed data
+            stream.avail_in = 0
+            stream.next_in = nil
+            var deflateResult: Int32
+            repeat {
+                stream.next_out = compressBuffer
+                stream.avail_out = UInt32(compressBufferSize)
+                deflateResult = deflate(&stream, Z_FINISH)
+                let produced = compressBufferSize - Int(stream.avail_out)
+                if produced > 0 {
+                    outputHandle.writeData(Data(bytes: compressBuffer, count: produced))
+                }
+            } while deflateResult == Z_OK
+            
+            deflateEnd(&stream)
+            outputHandle.closeFile()
+            
+            self.updateRequestCount(delta: -1)
+            returnCallback(nil)
+
+            return true
+        }
     }
 }
