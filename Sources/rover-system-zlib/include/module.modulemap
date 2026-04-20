@@ -1,4 +1,4 @@
-module zlibLinux [system] {
+module zlibLinuxRover [system] {
     header "/usr/include/zlib.h"
     header "/usr/include/zconf.h"
     link "z"

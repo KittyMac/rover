@@ -5,8 +5,8 @@ import Flynn
 import libpq
 import Hitch
 
-#if canImport(zlibLinux)
-    import zlibLinux
+#if canImport(zlibLinuxRover)
+    import zlibLinuxRover
 #else
     import zlib
 #endif
