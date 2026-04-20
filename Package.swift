@@ -60,6 +60,7 @@ let package = Package(
                 "Chronometer",
                 "Flynn",
                 "libpq",
+                "system-zlib"
 			],
             linkerSettings: [
                 .unsafeFlags([
@@ -71,7 +72,7 @@ let package = Package(
                 .plugin(name: "FlynnPlugin", package: "Flynn")
             ]
         ),
-        
+        .target(name: "system-zlib"),
         libpqLibrary,
         
         .testTarget(

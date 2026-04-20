@@ -4,7 +4,12 @@ import Foundation
 import Flynn
 import libpq
 import Hitch
-import zlib
+
+#if canImport(zlibLinux)
+    import zlibLinux
+#else
+    import zlib
+#endif
 
 let maxBackoff = 999_999_999
 
