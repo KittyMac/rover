@@ -93,7 +93,8 @@ public class RoverManager: Actor {
         guard rovers.count > 0 else { return nil }
         
         var subrovers = rovers
-        if limit > 0 {
+        if limit > 0,
+           rovers.count > limit {
             subrovers = Array(rovers[..<limit])
         }
         
