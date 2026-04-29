@@ -266,14 +266,15 @@ public final class Rover: Actor {
         updateRequestCount(delta: 1)
         queue.addOperation(retry: retry) { retryCount in
             self.confirmConnection(allowIdle: false)
-            
+
             if retryCount == 0 {
+                self.updateRequestCount(delta: -1)
                 returnCallback(Result("SQL retry count exceeded \(statementDebug) [\(finalError ?? "unknown")]"))
                 return true
             }
-            
+
             let start1 = Date()
-            
+
             var types: [Oid] = []
             types.reserveCapacity(params.count)
 
@@ -319,7 +320,14 @@ public final class Rover: Actor {
                     }
                 }
             }
-            
+
+            // Free param buffers on every exit path from this attempt, not just success.
+            func freeParams() {
+                for value in values {
+                    value?.deallocate()
+                }
+            }
+
             finalError = nil
             guard let execResult = PQexecParams(
                 self.connectionPtr,
@@ -331,50 +339,52 @@ public final class Rover: Actor {
                 formats,
                 Int32(0)
             ) else {
+                freeParams()
                 if self.debug {
-                    print(String(format: "[%0.2f -> %0.2f] SQL retry: %@", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow), statementDebug))
+                    print(String(format: "[%0.2f -> %0.2f] SQL retry: %@",
+                                 abs(start0.timeIntervalSinceNow),
+                                 abs(start1.timeIntervalSinceNow),
+                                 statementDebug))
                 }
-                // If PQexecParams() returns NULL, I read conflicting reports as to whether
-                // the statement succeeded or not. In our case, we are going to assume
-                // it failed and should be retried.
                 if backoff < maxBackoff {
                     backoff *= 2
                 }
                 Flynn.usleep(backoff)
-                
+
                 finalError = "PQexec returned null"
                 return false
             }
-            
+
             let result = Result(execResult)
-            
+
             if self.debug {
-                print(String(format: "[%0.2f -> %0.2f] SQL exec: %@", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow), statementDebug))
+                print(String(format: "[%0.2f -> %0.2f] SQL exec: %@",
+                             abs(start0.timeIntervalSinceNow),
+                             abs(start1.timeIntervalSinceNow),
+                             statementDebug))
                 if let error = result.error {
                     print("   \(error)")
                 }
             }
-            
-            for value in values {
-                value?.deallocate()
-            }
-            
-            // we should automatically rety deadlocked requests
-            if  let error = result.error,
-                error.contains("deadlock detected") == true ||
-                error.contains("FATAL") == true {
+
+            freeParams()
+
+            // Retry transient failures. Substring matching on error text is fragile;
+            // SQLSTATE-based detection via PQresultErrorField(..., PG_DIAG_SQLSTATE)
+            // would be more robust (40P01 = deadlock, 40001 = serialization failure).
+            if let error = result.error,
+               error.contains("deadlock detected") || error.contains("FATAL") {
                 if backoff < maxBackoff {
                     backoff *= 2
                 }
                 Flynn.usleep(backoff)
-                
+
                 finalError = error
                 return false
             }
 
             self.updateRequestCount(delta: -1)
             returnCallback(result)
-            
             return true
         }
     }
@@ -395,43 +405,28 @@ public final class Rover: Actor {
         let statementDebug = statement.prefix(64).description
         var finalError: String?
         var backoff: UInt64 = 500
-        
-        guard let outputHandle = SafeFileHandle(forWritingAtPath: toGzipFile) else {
-            returnCallback("Failed to open file for writing at \(toGzipFile)")
-            return
-        }
-
-        // Initialize zlib for gzip compression
-        var stream = z_stream()
-        let initResult = deflateInit2_(&stream,
-                                       Z_DEFAULT_COMPRESSION,
-                                       Z_DEFLATED,
-                                       15 + 16,  // 15 = default window bits, +16 = gzip format
-                                       8,        // default memory level
-                                       Z_DEFAULT_STRATEGY,
-                                       ZLIB_VERSION,
-                                       Int32(MemoryLayout<z_stream>.size))
-        guard initResult == Z_OK else {
-            returnCallback("Failed to initialize gzip compression")
-            return
-        }
-        
-        let compressBufferSize = 256 * 1024
-        let compressBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: compressBufferSize)
-        defer { compressBuffer.deallocate() }
 
         updateRequestCount(delta: 1)
         queue.addOperation(retry: 1) { retryCount in
             self.confirmConnection(allowIdle: false)
-            
+
             if retryCount == 0 {
-                deflateEnd(&stream)
+                self.updateRequestCount(delta: -1)
                 returnCallback("SQL retry count exceeded \(statementDebug) [\(finalError ?? "unknown")]")
                 return true
             }
-            
+
+            // Open (and truncate) the output file fresh on every attempt so a
+            // partial write from a previous retry doesn't corrupt the gzip stream.
+            try? FileManager.default.removeItem(atPath: toGzipFile)
+            guard let outputHandle = SafeFileHandle(forWritingAtPath: toGzipFile) else {
+                self.updateRequestCount(delta: -1)
+                returnCallback("Failed to open file for writing at \(toGzipFile)")
+                return true
+            }
+
             let start1 = Date()
-            
+
             var types: [Oid] = []
             types.reserveCapacity(params.count)
 
@@ -477,7 +472,7 @@ public final class Rover: Actor {
                     }
                 }
             }
-            
+
             finalError = nil
             guard let execResult = PQexecParams(
                 self.connectionPtr,
@@ -489,57 +484,103 @@ public final class Rover: Actor {
                 formats,
                 Int32(0)
             ) else {
+                outputHandle.closeFile()
                 if self.debug {
-                    print(String(format: "[%0.2f -> %0.2f] SQL retry: %@", abs(start0.timeIntervalSinceNow), abs(start1.timeIntervalSinceNow), statementDebug))
+                    print(String(format: "[%0.2f -> %0.2f] SQL retry: %@",
+                                 abs(start0.timeIntervalSinceNow),
+                                 abs(start1.timeIntervalSinceNow),
+                                 statementDebug))
                 }
                 if backoff < maxBackoff {
                     backoff *= 2
                 }
                 Flynn.usleep(backoff)
-                
+
                 finalError = "PQexec returned null"
                 return false
             }
-            
-            if (PQresultStatus(execResult) != PGRES_COPY_OUT) {
-                PQclear(execResult);
-                deflateEnd(&stream)
-                return false;
+
+            if PQresultStatus(execResult) != PGRES_COPY_OUT {
+                let msg = String(cString: PQresultErrorMessage(execResult))
+                PQclear(execResult)
+                outputHandle.closeFile()
+                self.updateRequestCount(delta: -1)
+                returnCallback(msg.isEmpty ? "Expected PGRES_COPY_OUT but got different status" : msg)
+                return true
             }
-            PQclear(execResult);
-            
+            PQclear(execResult)
+
+            // Initialize zlib *after* we know COPY started successfully, so we
+            // don't have to tear it down on early-exit paths.
+            var stream = z_stream()
+            let initResult = deflateInit2_(&stream,
+                                           Z_DEFAULT_COMPRESSION,
+                                           Z_DEFLATED,
+                                           15 + 16,  // 15 = default window bits, +16 = gzip format
+                                           8,        // default memory level
+                                           Z_DEFAULT_STRATEGY,
+                                           ZLIB_VERSION,
+                                           Int32(MemoryLayout<z_stream>.size))
+            guard initResult == Z_OK else {
+                outputHandle.closeFile()
+                self.updateRequestCount(delta: -1)
+                returnCallback("Failed to initialize gzip compression")
+                return true
+            }
+
+            let compressBufferSize = 256 * 1024
+            let compressBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: compressBufferSize)
+
+            // Single cleanup helper used by every exit path below.
+            func finish(_ error: String?) -> Bool {
+                deflateEnd(&stream)
+                compressBuffer.deallocate()
+                outputHandle.closeFile()
+                self.updateRequestCount(delta: -1)
+                returnCallback(error)
+                return true
+            }
+
             var buffer: UnsafeMutablePointer<CChar>? = nil
             while true {
                 let nbytes = PQgetCopyData(self.connectionPtr, &buffer, 0)
                 if nbytes > 0 {
                     if let buffer = buffer {
-                        // Compress the chunk and write to file
                         stream.next_in = UnsafeMutablePointer<UInt8>(OpaquePointer(buffer))
                         stream.avail_in = UInt32(nbytes)
-                        
+
                         while stream.avail_in > 0 {
                             stream.next_out = compressBuffer
                             stream.avail_out = UInt32(compressBufferSize)
-                            deflate(&stream, Z_NO_FLUSH)
+                            let dr = deflate(&stream, Z_NO_FLUSH)
+                            if dr != Z_OK && dr != Z_BUF_ERROR {
+                                PQfreemem(buffer)
+                                return finish("deflate failed with code \(dr)")
+                            }
                             let produced = compressBufferSize - Int(stream.avail_out)
                             if produced > 0 {
                                 outputHandle.writeData(Data(bytes: compressBuffer, count: produced))
                             }
                         }
-                        
+
                         PQfreemem(buffer)
                     }
                 } else if nbytes == -1 {
                     break  // done
                 } else {
+                    // nbytes == -2 (error) or any other negative value
                     let msg = String(cString: PQerrorMessage(self.connectionPtr))
-                    deflateEnd(&stream)
-                    returnCallback(msg)
-                    return true
+                    return finish(msg)
                 }
             }
-            
-            // Flush remaining compressed data
+
+            // Drain any final result(s) from the COPY so the connection is left
+            // in a clean state for reuse.
+            while let res = PQgetResult(self.connectionPtr) {
+                PQclear(res)
+            }
+
+            // Flush remaining compressed data.
             stream.avail_in = 0
             stream.next_in = nil
             var deflateResult: Int32
@@ -552,14 +593,12 @@ public final class Rover: Actor {
                     outputHandle.writeData(Data(bytes: compressBuffer, count: produced))
                 }
             } while deflateResult == Z_OK
-            
-            deflateEnd(&stream)
-            outputHandle.closeFile()
-            
-            self.updateRequestCount(delta: -1)
-            returnCallback(nil)
 
-            return true
+            if deflateResult != Z_STREAM_END {
+                return finish("deflate Z_FINISH failed with code \(deflateResult)")
+            }
+
+            return finish(nil)
         }
     }
 }
