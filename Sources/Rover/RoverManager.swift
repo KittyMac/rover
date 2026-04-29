@@ -164,5 +164,18 @@ public class RoverManager: Actor {
             returnCallback(result)
         }
     }
-
+    
+    internal func _beCopy(toGzipFile: String,
+                          _ statement: String,
+                          _ params: [Any?],
+                          _ returnCallback: @escaping (String?) -> Void) {
+        guard let rover = _beNext() else {
+            return returnCallback("beRun() called before any connections were established")
+        }
+        rover.beCopy(toGzipFile: toGzipFile,
+                     statement, params, self) { error in
+            returnCallback(error)
+        }
+    }
+    
 }
