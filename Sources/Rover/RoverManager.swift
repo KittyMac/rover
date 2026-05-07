@@ -88,14 +88,21 @@ public class RoverManager: Actor {
     internal func _beNext() -> Rover? {
         return _beNext(limit: 0)
     }
-
+    
     internal func _beNext(limit: Int) -> Rover? {
+        return _beNext(offset: 0,
+                       limit: limit)
+    }
+
+    internal func _beNext(offset: Int,
+                          limit: Int) -> Rover? {
         guard rovers.count > 0 else { return nil }
         
         var subrovers = rovers
         if limit > 0,
-           rovers.count > limit {
-            subrovers = Array(rovers[..<limit])
+           offset >= 0,
+           offset + limit < rovers.count {
+            subrovers = Array(rovers[offset...limit])
         }
         
         // find a completely free rover first (already connected)
@@ -158,6 +165,56 @@ public class RoverManager: Actor {
                          _ params: [Any?],
                          _ returnCallback: @escaping (Result) -> Void) {
         guard let rover = _beNext() else {
+            return returnCallback(Result("beRun() called before any connections were established"))
+        }
+        rover.beRun(statement, params, self) { result in
+            returnCallback(result)
+        }
+    }
+    
+    internal func _beRun(offset: Int,
+                         limit: Int,
+                         _ statement: String,
+                         _ returnCallback: @escaping (Result) -> Void) {
+        guard let rover = _beNext(offset: offset, limit: limit) else {
+            return returnCallback(Result("beRun() called before any connections were established"))
+        }
+        rover.beRun(statement, self) { result in
+            returnCallback(result)
+        }
+    }
+
+    internal func _beRun(offset: Int,
+                         limit: Int,
+                         _ statement: String,
+                         _ params: [Any?],
+                         _ returnCallback: @escaping (Result) -> Void) {
+        guard let rover = _beNext(offset: offset, limit: limit) else {
+            return returnCallback(Result("beRun() called before any connections were established"))
+        }
+        rover.beRun(statement, params, self) { result in
+            returnCallback(result)
+        }
+    }
+
+    internal func _beRun(offset: Int,
+                         limit: Int,
+                         _ statement: Hitch,
+                         _ returnCallback: @escaping (Result) -> Void) {
+        guard let rover = _beNext(offset: offset, limit: limit) else {
+            return returnCallback(Result("beRun() called before any connections were established"))
+        }
+        rover.beRun(statement, self) { result in
+            returnCallback(result)
+        }
+    }
+
+    internal func _beRun(offset: Int,
+                         limit: Int,
+                         _ statement: Hitch,
+                         _ params: [Any?],
+                         _ returnCallback: @escaping (Result) -> Void) {
+        guard let rover = _beNext(offset: offset, limit: limit) else {
             return returnCallback(Result("beRun() called before any connections were established"))
         }
         rover.beRun(statement, params, self) { result in
