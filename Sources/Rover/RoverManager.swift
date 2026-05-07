@@ -102,7 +102,7 @@ public class RoverManager: Actor {
         if limit > 0,
            offset >= 0,
            offset + limit < rovers.count {
-            subrovers = Array(rovers[offset...limit])
+            subrovers = Array(rovers[offset...(offset+limit)])
         }
         
         // find a completely free rover first (already connected)
