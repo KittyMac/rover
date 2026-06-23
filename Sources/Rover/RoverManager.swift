@@ -22,11 +22,6 @@ public class RoverManager: Actor {
     
     private var busyDelta: Int
     private var busyTimer: TimeInterval
-    
-    public override init() {
-        busyTimer = 10
-        busyDelta = 4
-    }
         
     public init(connect info: ConnectionInfo,
                 maxConnections: Int,
@@ -245,5 +240,29 @@ public class RoverManager: Actor {
             returnCallback(error)
         }
     }
-    
+
+    // Routes both the check and the (conditional) statement to a single pooled
+    // connection so they evaluate against the same database state.
+    internal func _beRunIf(_ check: Hitch,
+                           _ statement: Hitch,
+                           _ returnCallback: @escaping (Result) -> Void) {
+        guard let rover = _beNext() else {
+            return returnCallback(Result("beRunIf() called before any connections were established"))
+        }
+        rover.beRunIf(check, statement, self) { result in
+            returnCallback(result)
+        }
+    }
+
+    internal func _beRunIf(_ check: String,
+                           _ statement: String,
+                           _ returnCallback: @escaping (Result) -> Void) {
+        guard let rover = _beNext() else {
+            return returnCallback(Result("beRunIf() called before any connections were established"))
+        }
+        rover.beRunIf(check, statement, self) { result in
+            returnCallback(result)
+        }
+    }
+
 }

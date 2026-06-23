@@ -112,4 +112,31 @@ public class Rover: Actor {
                            _ returnCallback: @escaping (String?) -> Void) {
         fatalError("not overridden by subclass")
     }
+
+    internal func _beRunIf(_ check: Hitch,
+                           _ statement: Hitch,
+                           _ returnCallback: @escaping (Result) -> Void) {
+        return safeRunIf(check.description, statement.description, returnCallback)
+    }
+
+    internal func _beRunIf(_ check: String,
+                           _ statement: String,
+                           _ returnCallback: @escaping (Result) -> Void) {
+        return safeRunIf(check, statement, returnCallback)
+    }
+
+    internal func safeRunIf(_ check: String,
+                            _ statement: String,
+                            _ returnCallback: @escaping (Result) -> Void) {
+        safeRun(check) { checkResult in
+            guard checkResult.error == nil else {
+                return returnCallback(checkResult)
+            }
+            if checkResult.get(bool: 0, 0) == false {
+                self.safeRun(statement, returnCallback)
+                return
+            }
+            returnCallback(checkResult)
+        }
+    }
 }
