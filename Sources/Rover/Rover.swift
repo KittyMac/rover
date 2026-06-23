@@ -132,7 +132,7 @@ public class Rover: Actor {
             guard checkResult.error == nil else {
                 return returnCallback(checkResult)
             }
-            if checkResult.get(bool: 0, 0) == false {
+            if checkResult.get(bool: 0, 0) == true {
                 self.safeRun(statement, returnCallback)
                 return
             }

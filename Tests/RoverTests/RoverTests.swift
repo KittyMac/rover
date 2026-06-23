@@ -174,6 +174,46 @@ final class RoverTests: XCTestCase {
         XCTAssertEqual(rover.unsafeOutstandingRequests(), 0)
     }
     
+    func testPostgressRunIf() {
+        let expectation = XCTestExpectation(description: "Conditionally drop a table when its column count changed")
+
+        let connectionInfo = ConnectionInfoPostgres(host: "127.0.0.1",
+                                                    username: "postgres",
+                                                    password: "12345",
+                                                    debug: true)
+        let rover = connectionInfo.newRover()
+
+        rover.beConnect(connectionInfo, Flynn.any) { success in
+            XCTAssert(success)
+        }
+
+        // A three-column table.
+        rover.beRun("create table if not exists widgets ( a integer, b text, c real );", Flynn.any, Rover.ignore)
+
+        let countSQL = "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'widgets' AND table_schema = 'public';"
+        let countNotEqual3SQL = "SELECT COUNT(*) != 3 FROM information_schema.columns WHERE table_name = 'widgets' AND table_schema = 'public';"
+        let countNotEqual4SQL = "SELECT COUNT(*) != 4 FROM information_schema.columns WHERE table_name = 'widgets' AND table_schema = 'public';"
+        let dropSQL = "DROP TABLE IF EXISTS widgets;"
+
+        rover.beRunIf(countNotEqual3SQL, dropSQL, Flynn.any) { _ in
+            rover.beRun(countSQL, Flynn.any) { afterMatch in
+                XCTAssertEqual(afterMatch.get(int: 0, 0), 3)
+
+                rover.beRunIf(countNotEqual4SQL, dropSQL, Flynn.any) { _ in
+                    rover.beRun(countSQL, Flynn.any) { afterDiffer in
+                        // Table gone: pragma_table_info yields zero columns.
+                        XCTAssertEqual(afterDiffer.get(int: 0, 0), 0)
+                        expectation.fulfill()
+                    }
+                }
+            }
+        }
+
+        wait(for: [expectation], timeout: 30.0)
+
+        XCTAssertEqual(rover.unsafeOutstandingRequests(), 0)
+    }
+    
     // MARK: - SQLite
 
     // Unlike the Postgres tests above (which need a server on 127.0.0.1), the
@@ -373,21 +413,15 @@ final class RoverTests: XCTestCase {
         rover.beRun("create table if not exists widgets ( a integer, b text, c real );", Flynn.any, Rover.ignore)
 
         let countSQL = "SELECT COUNT(*) FROM pragma_table_info('widgets');"
-        let countEqual3SQL = "SELECT COUNT(*) = 3 FROM pragma_table_info('widgets');"
-        let countEqual4SQL = "SELECT COUNT(*) = 4 FROM pragma_table_info('widgets');"
+        let countNotEqual3SQL = "SELECT COUNT(*) != 3 FROM pragma_table_info('widgets');"
+        let countNotEqual4SQL = "SELECT COUNT(*) != 4 FROM pragma_table_info('widgets');"
         let dropSQL = "DROP TABLE IF EXISTS widgets;"
 
-        // Phase 1: expected count (3) matches the live column count -> the table
-        // is preserved. Phase 2 is nested in the callback so ordering is
-        // deterministic regardless of scheduler timing.
-        rover.beRunIf(countEqual3SQL, dropSQL, Flynn.any) { _ in
+        rover.beRunIf(countNotEqual3SQL, dropSQL, Flynn.any) { _ in
             rover.beRun(countSQL, Flynn.any) { afterMatch in
-                // Still three columns: the table survived.
                 XCTAssertEqual(afterMatch.get(int: 0, 0), 3)
 
-                // Phase 2: expected count (4)  from the live count (3)
-                // -> the drop runs.
-                rover.beRunIf(countEqual4SQL, dropSQL, Flynn.any) { _ in
+                rover.beRunIf(countNotEqual4SQL, dropSQL, Flynn.any) { _ in
                     rover.beRun(countSQL, Flynn.any) { afterDiffer in
                         // Table gone: pragma_table_info yields zero columns.
                         XCTAssertEqual(afterDiffer.get(int: 0, 0), 0)
