@@ -22,6 +22,11 @@ public class RoverManager: Actor {
     
     private var busyDelta: Int
     private var busyTimer: TimeInterval
+    
+    public override init() {
+        busyTimer = 10
+        busyDelta = 4
+    }
         
     public init(connect info: ConnectionInfo,
                 maxConnections: Int,
