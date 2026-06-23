@@ -285,8 +285,8 @@ final class RoverTests: XCTestCase {
 
         XCTAssertEqual(rover.unsafeOutstandingRequests(), 0)
 
-        try? FileManager.default.removeItem(atPath: dbPath)
-        try? FileManager.default.removeItem(atPath: gzPath)
+        // try? FileManager.default.removeItem(atPath: dbPath)
+        // try? FileManager.default.removeItem(atPath: gzPath)
     }
 
     /*
