@@ -26,10 +26,10 @@ final class RoverTests: XCTestCase {
             }
         }
 
-        let connectionInfo = ConnectionInfo(host: "127.0.0.1",
-                                            username: "postgres",
-                                            password: "12345",
-                                            debug: true)
+        let connectionInfo = ConnectionInfoPostgres(host: "127.0.0.1",
+                                                    username: "postgres",
+                                                    password: "12345",
+                                                    debug: true)
         
         _ = RoverManager(connect: connectionInfo,
                          maxConnections: 20,
@@ -88,12 +88,13 @@ final class RoverTests: XCTestCase {
     func testConnection() {
         let expectation = XCTestExpectation(description: "Perform some actions on the postgres server")
         
-        let rover = Rover()
         
-        let connectionInfo = ConnectionInfo(host: "127.0.0.1",
-                                            username: "postgres",
-                                            password: "12345",
-                                            debug: true)
+        
+        let connectionInfo = ConnectionInfoPostgres(host: "127.0.0.1",
+                                                    username: "postgres",
+                                                    password: "12345",
+                                                    debug: true)
+        let rover = connectionInfo.newRover()
         
         rover.beConnect(connectionInfo, Flynn.any) { success in
             XCTAssert(success)
@@ -136,18 +137,17 @@ final class RoverTests: XCTestCase {
         
         wait(for: [expectation], timeout: 600.0)
         
-        XCTAssertEqual(rover.unsafeOutstandingRequests, 0)
+        XCTAssertEqual(rover.unsafeOutstandingRequests(), 0)
     }
     
     func testCopyConnection() {
         let expectation = XCTestExpectation(description: "Perform some actions on the postgres server")
         
-        let rover = Rover()
-        
-        let connectionInfo = ConnectionInfo(host: "127.0.0.1",
-                                            username: "postgres",
-                                            password: "12345",
-                                            debug: true)
+        let connectionInfo = ConnectionInfoPostgres(host: "127.0.0.1",
+                                                    username: "postgres",
+                                                    password: "12345",
+                                                    debug: true)
+        let rover = connectionInfo.newRover()
         
         rover.beConnect(connectionInfo, Flynn.any) { success in
             XCTAssert(success)
@@ -171,7 +171,7 @@ final class RoverTests: XCTestCase {
         
         wait(for: [expectation], timeout: 600.0)
         
-        XCTAssertEqual(rover.unsafeOutstandingRequests, 0)
+        XCTAssertEqual(rover.unsafeOutstandingRequests(), 0)
     }
     
     /*

@@ -1,3 +1,5 @@
+// flynn:ignore Access Level Violation: Unsafe variables should not be used
+
 import Flynn
 import Foundation
 import Hitch
@@ -19,25 +21,29 @@ public class RoverManager: Actor {
     private var waitingRovers: [Rover] = []
     
     private var busyDelta: Int
-    
-    public override init() {
-        busyDelta = 4
-    }
-
+    private var busyTimer: TimeInterval
+        
     public init(connect info: ConnectionInfo,
                 maxConnections: Int,
                 _ sender: Actor,
                 _ onFirstConnect: @escaping kDidConnectCallback) {
+        if let info = info as? ConnectionInfoPostgres {
+            busyDelta = info.busyDelta
+            busyTimer = info.busyTimer
+        } else if let info = info as? ConnectionInfoSQLite {
+            busyDelta = info.busyDelta
+            busyTimer = info.busyTimer
+        } else {
+            fatalError("must send typed ConnectionInfo to RoverManager")
+        }
 
-        busyDelta = info.busyDelta
-        
         super.init()
 
         unsafePriority = 99
 
         var didCallFirstConnect = false
         for _ in 0..<maxConnections {
-            let rover = Rover()
+            let rover = info.newRover()
             self.waitingRovers.append(rover)
             
             rover.beConnect(info, self) { success in
@@ -62,13 +68,13 @@ public class RoverManager: Actor {
             }
         }
 
-        Flynn.Timer(timeInterval: info.busyTimer, repeats: true, self) { [weak self] (_) in
+        Flynn.Timer(timeInterval: busyTimer, repeats: true, self) { [weak self] (_) in
             guard let self = self else { return }
             guard self.rovers.count > 0 else { return }
             
             var notBusyRovers = 0
             for rover in self.rovers {
-                if rover.unsafeOutstandingRequests < self.busyDelta {
+                if rover.unsafeOutstandingRequests() < self.busyDelta {
                     notBusyRovers += 1
                 }
             }
@@ -106,22 +112,22 @@ public class RoverManager: Actor {
         }
         
         // find a completely free rover first (already connected)
-        for rover in subrovers.shuffled() where rover.unsafeOutstandingRequests == 0 && rover.unsafeIsConnected() {
+        for rover in subrovers.shuffled() where rover.unsafeOutstandingRequests() == 0 && rover.unsafeIsConnected() {
             return rover
         }
         
         // find a completely free rover first (regardless of connected status)
-        for rover in subrovers.shuffled() where rover.unsafeOutstandingRequests == 0 {
+        for rover in subrovers.shuffled() where rover.unsafeOutstandingRequests() == 0 {
             return rover
         }
         
         // find a not busy rover second (already connected)
-        for rover in subrovers.shuffled() where rover.unsafeOutstandingRequests < busyDelta && rover.unsafeIsConnected() {
+        for rover in subrovers.shuffled() where rover.unsafeOutstandingRequests() < busyDelta && rover.unsafeIsConnected() {
             return rover
         }
         
         // find a not busy rover (regardless of connected status)
-        for rover in subrovers.shuffled() where rover.unsafeOutstandingRequests < busyDelta {
+        for rover in subrovers.shuffled() where rover.unsafeOutstandingRequests() < busyDelta {
             return rover
         }
         

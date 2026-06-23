@@ -2,7 +2,17 @@ import Flynn
 import libpq
 import Foundation
 
-public struct ConnectionInfo: CustomStringConvertible {
+public class ConnectionInfo: CustomStringConvertible {
+    public var description: String {
+        fatalError("must call on typed ConnectionInfo")
+    }
+    
+    public func newRover() -> Rover {
+        fatalError("must call on typed ConnectionInfo")
+    }
+}
+
+public class ConnectionInfoPostgres: ConnectionInfo {
     let database: String?
     let host: String?
     let port: Int?
@@ -35,8 +45,12 @@ public struct ConnectionInfo: CustomStringConvertible {
         reconnectTimer = inReconnectTimer
         debug = inDebug
     }
+    
+    override public func newRover() -> Rover {
+        return RoverPostgres()
+    }
 
-    public var description: String {
+    override public var description: String {
         var info = "host=\(host ?? "localhost") dbname=\(database ?? "postgres")"
         if let port = port {
             info += " port=\(port)"
@@ -55,6 +69,37 @@ public struct ConnectionInfo: CustomStringConvertible {
         info += " keepalives_idle=2"
         info += " keepalives_interval=3"
         info += " keepalives_count=3"
+        return info
+    }
+}
+
+public class ConnectionInfoSQLite: ConnectionInfo {
+    let path: String?
+    let busyDelta: Int
+    let busyTimer: TimeInterval
+    let debug: Bool
+
+    public init(path inPath: String? = nil,
+                busyDelta inBusyDelta: Int = 4,
+                busyTimer inBusyTimer: TimeInterval = 10,
+                debug inDebug: Bool = false) {
+        path = inPath
+        busyDelta = inBusyDelta
+        busyTimer = inBusyTimer
+        debug = inDebug
+    }
+    
+    override public func newRover() -> Rover {
+        return RoverSQLite()
+    }
+
+    override public var description: String {
+        var info = ""
+        if let path = path {
+            info += "path=\(path)"
+        } else {
+            info += "in-memory"
+        }
         return info
     }
 }
