@@ -179,6 +179,75 @@ final class RoverTests: XCTestCase {
     // Unlike the Postgres tests above (which need a server on 127.0.0.1), the
     // SQLite tests are self-contained: an in-memory or temp-file database is
     // created on the fly, so they run anywhere Flynn runs.
+    
+    func testSQLiteConnectionManager() {
+        let expectation = XCTestExpectation(description: "Multiple connections using rover manager")
+        
+        var numReturns = 0
+        
+        let checkReturn: () -> () = {
+            numReturns += 1
+            if numReturns == 2 {
+                expectation.fulfill()
+            }
+        }
+
+        let connectionInfo = ConnectionInfoSQLite(path: "/tmp/rover_sqlite_test.sqlite3",
+                                                  debug: true)
+
+        _ = RoverManager(connect: connectionInfo,
+                         maxConnections: 20,
+                         Flynn.any) { manager in
+            
+            manager.beRun("drop table people", Flynn.any, Rover.error)
+            
+            sleep(2)
+            
+            manager.beRun("create table if not exists people ( id serial primary key, name char(256) not null, email char(256), date timestamptz );", Flynn.any, Rover.error)
+            
+            sleep(2)
+            
+            manager.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Rocco", nil, Date()], Flynn.any, Rover.error)
+            manager.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["John", "a@b.com", Date()], Flynn.any, Rover.error)
+            manager.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Jane", nil, Date()], Flynn.any, Rover.error)
+            
+            sleep(2)
+            
+            manager.beRun("select count(*) from people where name in (?, ?, ?, ?);",
+                        ["Rocco", "John", "Mark", "Anthony"],
+                        Flynn.any) { result in
+                
+                XCTAssertEqual(result.get(int: 0, 0), 2)
+                
+                checkReturn()
+            }
+            
+            manager.beRun("select * from people order by name;", Flynn.any) { result in
+                var names:[Hitch] = []
+                
+                result.syncOOB(count: 32, timeout: 5) { row, synchronized in
+                    if let name = result.trimmed(hitch: row, 1) {
+                        synchronized {
+                            names.append(name)
+                        }
+                    }
+                    if let date = result.get(date: row, 3) {
+                        XCTAssertTrue(date < Date())
+                    }
+                }
+                                
+                XCTAssertEqual(names.contains("Jane"), true)
+                XCTAssertEqual(names.contains("John"), true)
+                XCTAssertEqual(names.contains("Rocco"), true)
+                            
+                //XCTAssertEqual(names.joined(separator: ","), "Jane,John,Rocco")
+                
+                checkReturn()
+            }
+        }
+        
+        wait(for: [expectation], timeout: 10.0)
+    }
 
     func testSQLiteConnection() {
         let expectation = XCTestExpectation(description: "Perform some actions on an in-memory sqlite database")
