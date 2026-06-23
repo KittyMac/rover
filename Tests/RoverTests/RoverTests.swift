@@ -174,6 +174,121 @@ final class RoverTests: XCTestCase {
         XCTAssertEqual(rover.unsafeOutstandingRequests(), 0)
     }
     
+    // MARK: - SQLite
+
+    // Unlike the Postgres tests above (which need a server on 127.0.0.1), the
+    // SQLite tests are self-contained: an in-memory or temp-file database is
+    // created on the fly, so they run anywhere Flynn runs.
+
+    func testSQLiteConnection() {
+        let expectation = XCTestExpectation(description: "Perform some actions on an in-memory sqlite database")
+
+        // nil path -> a private, in-memory database. The single Rover keeps one
+        // connection open for its lifetime, so every statement below sees the
+        // same database.
+        let connectionInfo = ConnectionInfoSQLite(path: nil,
+                                                  debug: true)
+        let rover = connectionInfo.newRover()
+
+        rover.beConnect(connectionInfo, Flynn.any) { success in
+            XCTAssert(success)
+        }
+
+        // Fresh in-memory db: the drop will error, which we intentionally ignore.
+        rover.beRun("drop table people", Flynn.any, Rover.ignore)
+
+        rover.beRun("create table if not exists people ( id integer primary key autoincrement, name text not null, email text, date text );", Flynn.any, Rover.ignore)
+
+        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Rocco", nil, Date()], Flynn.any, Rover.ignore)
+        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["John", "a@b.com", Date()], Flynn.any, Rover.ignore)
+        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Jane", nil, Date()], Flynn.any, Rover.ignore)
+
+        rover.beRun("select count(*) from people;", Flynn.any) { result in
+            XCTAssertNil(result.error)
+            XCTAssertEqual(result.get(int: 0, 0), 3)
+        }
+
+        // A parameterized predicate (the SQLite analogue of the Postgres test's
+        // ANY($1), which has no direct SQLite equivalent).
+        rover.beRun("select count(*) from people where name = $1;", ["Rocco"], Flynn.any) { result in
+            XCTAssertEqual(result.get(int: 0, 0), 1)
+        }
+
+        rover.beRun("select * from people order by name;", Flynn.any) { result in
+            XCTAssertNil(result.error)
+
+            var names: [Hitch] = []
+            for row in 0..<result.rows {
+                if let name = result.trimmed(hitch: row, 1) {
+                    names.append(name)
+                }
+                if let date = result.get(date: row, 3) {
+                    XCTAssertTrue(date <= Date())
+                }
+            }
+
+            XCTAssertEqual(names.count, 3)
+            XCTAssertEqual(names.contains("Jane"), true)
+            XCTAssertEqual(names.contains("John"), true)
+            XCTAssertEqual(names.contains("Rocco"), true)
+
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 30.0)
+
+        XCTAssertEqual(rover.unsafeOutstandingRequests(), 0)
+    }
+
+    func testSQLiteCopyConnection() {
+        let expectation = XCTestExpectation(description: "Copy from a sqlite database to a gzip file")
+
+        let dbPath = "/tmp/rover_sqlite_copy_test.sqlite3"
+        let gzPath = "/tmp/people_sqlite.csv.gz"
+        try? FileManager.default.removeItem(atPath: dbPath)
+        try? FileManager.default.removeItem(atPath: gzPath)
+
+        let connectionInfo = ConnectionInfoSQLite(path: dbPath,
+                                                  debug: true)
+        let rover = connectionInfo.newRover()
+
+        rover.beConnect(connectionInfo, Flynn.any) { success in
+            XCTAssert(success)
+        }
+
+        rover.beRun("drop table people", Flynn.any, Rover.ignore)
+
+        rover.beRun("create table if not exists people ( id integer primary key autoincrement, name text not null, email text, date text );", Flynn.any, Rover.ignore)
+
+        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Rocco", nil, Date()], Flynn.any, Rover.ignore)
+        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["John", "a@b.com", Date()], Flynn.any, Rover.ignore)
+        rover.beRun("insert into people (name, email, date) values ($1, $2, $3);", ["Jane", nil, Date()], Flynn.any, Rover.ignore)
+
+        // The Postgres COPY syntax is accepted and translated to an equivalent
+        // SELECT; the HEADER option is honored.
+        rover.beCopy(toGzipFile: gzPath,
+                     "COPY people TO STDOUT WITH (FORMAT csv, HEADER)",
+                     [],
+                     Flynn.any) { error in
+
+            XCTAssertNil(error)
+
+            // The gzip file should exist and be non-empty.
+            let attrs = try? FileManager.default.attributesOfItem(atPath: gzPath)
+            let size = (attrs?[.size] as? Int) ?? 0
+            XCTAssertTrue(size > 0)
+
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 30.0)
+
+        XCTAssertEqual(rover.unsafeOutstandingRequests(), 0)
+
+        try? FileManager.default.removeItem(atPath: dbPath)
+        try? FileManager.default.removeItem(atPath: gzPath)
+    }
+
     /*
     func testIdleConnectionDrops() {
         
@@ -201,5 +316,7 @@ final class RoverTests: XCTestCase {
 
     static var allTests = [
         ("testConnection", testConnection),
+        ("testSQLiteConnection", testSQLiteConnection),
+        ("testSQLiteCopyConnection", testSQLiteCopyConnection),
     ]
 }
