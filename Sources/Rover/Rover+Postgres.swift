@@ -188,6 +188,7 @@ public class RoverPostgres: Rover {
             self.confirmConnection(allowIdle: false)
             
             if retryCount == 0 {
+                self.updateRequestCount(delta: -1)
                 returnCallback(Result("SQL retry count exceeded \(statementDebug) [\(finalError ?? "unknown")]"))
                 return true
             }
@@ -314,7 +315,7 @@ public class RoverPostgres: Rover {
             }
 
             // Free param buffers on every exit path from this attempt, not just success.
-            func freeParams() {
+            defer {
                 for value in values {
                     value?.deallocate()
                 }
@@ -331,7 +332,6 @@ public class RoverPostgres: Rover {
                 formats,
                 Int32(0)
             ) else {
-                freeParams()
                 if self.debug {
                     print(String(format: "[%0.2f -> %0.2f] SQL retry: %@",
                                  abs(start0.timeIntervalSinceNow),
@@ -358,8 +358,6 @@ public class RoverPostgres: Rover {
                     print("   \(error)")
                 }
             }
-
-            freeParams()
 
             // Retry transient failures. Substring matching on error text is fragile;
             // SQLSTATE-based detection via PQresultErrorField(..., PG_DIAG_SQLSTATE)
@@ -462,6 +460,13 @@ public class RoverPostgres: Rover {
                     } else {
                         values.append(nil)
                     }
+                }
+            }
+            
+            // Free param buffers on every exit path from this attempt, not just success.
+            defer {
+                for value in values {
+                    value?.deallocate()
                 }
             }
 
