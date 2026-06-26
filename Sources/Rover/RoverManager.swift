@@ -89,9 +89,7 @@ public class RoverManager: Actor {
     }
     
     internal func _beDescription() -> String {
-        let outstandingRequests = rovers.map { $0.unsafeOutstandingRequests().description }.joined(separator: ", ")
-        let messagesCount = rovers.map { $0.unsafeMessagesCount.description }.joined(separator: ", ")
-        return "active: \(outstandingRequests)\nwaiting: \(messagesCount)"
+        return rovers.map { "\($0.unsafeOutstandingRequests())/\($0.unsafeMessagesCount)" }.joined(separator: ", ")
     }
     
     internal func _beCleanUp() -> Bool {
