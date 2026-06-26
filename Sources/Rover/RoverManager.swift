@@ -88,6 +88,12 @@ public class RoverManager: Actor {
         }
     }
     
+    internal func _beDescription() -> String {
+        let outstandingRequests = rovers.map { $0.unsafeOutstandingRequests().description }.joined(separator: ", ")
+        let messagesCount = rovers.map { $0.unsafeMessagesCount.description }.joined(separator: ", ")
+        return "active: \(outstandingRequests)\nwaiting: \(messagesCount)"
+    }
+    
     internal func _beCleanUp() -> Bool {
         for rover in rovers {
             rover.beClose()

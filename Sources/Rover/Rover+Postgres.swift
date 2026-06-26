@@ -26,20 +26,6 @@ fileprivate extension String {
     }
 }
 
-fileprivate extension Array where Element == UInt8 {
-   func getCCPointer() -> UnsafePointer<Int8>? {
-       return self.withUnsafeBufferPointer { buffered -> UnsafePointer<Int8>? in
-           return buffered.baseAddress?.withMemoryRebound(to: Int8.self, capacity: count) { $0 }
-       }
-   }
-}
-
-fileprivate extension Array where Element == Int8 {
-   func getPointer() -> UnsafePointer<Int8>? {
-       return self.withUnsafeBufferPointer { $0.baseAddress }
-   }
-}
-
 public class RoverPostgres: Rover {
     private var debug: Bool = false
     
