@@ -25,11 +25,11 @@ public class Rover: Actor {
     
     
     public func unsafeOutstandingRequests() -> Int {
-        return 0
+        fatalError("not overridden by subclass")
     }
     
     public func unsafeIsConnected() -> Bool {
-        return false
+        fatalError("not overridden by subclass")
     }
 
     internal override init() {

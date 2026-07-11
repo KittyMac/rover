@@ -27,10 +27,8 @@ fileprivate let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type
 public class RoverSQLite: Rover {
     private var debug: Bool = false
 
-    private var outstandingRequestsLock = NSLock()
-    private var outstandingRequestsCount = 0
     override public func unsafeOutstandingRequests() -> Int {
-        return outstandingRequestsCount
+        return queue.count()
     }
 
     private var dateOfLastActivity = Date.distantPast
@@ -131,13 +129,6 @@ public class RoverSQLite: Rover {
     }
 
     // MARK: - Request bookkeeping
-
-    private func updateRequestCount(delta: Int) {
-        outstandingRequestsLock.lock()
-        outstandingRequestsCount += delta
-        dateOfLastActivity = Date()
-        outstandingRequestsLock.unlock()
-    }
 
     private func backoffSleep(_ backoff: UInt64) -> UInt64 {
         var backoff = backoff
@@ -262,12 +253,13 @@ public class RoverSQLite: Rover {
         var finalError: String?
         var backoff: UInt64 = 500
 
-        updateRequestCount(delta: 1)
+        dateOfLastActivity = Date()
         queue.addOperation(retry: retry) { retryCount in
+            self.dateOfLastActivity = Date()
+            
             self.confirmConnection()
 
             if retryCount == 0 {
-                self.updateRequestCount(delta: -1)
                 returnCallback(Result("SQL retry count exceeded \(statementDebug) [\(finalError ?? "unknown")]"))
                 return true
             }
@@ -324,12 +316,10 @@ public class RoverSQLite: Rover {
             }
 
             if let hardError = hardError {
-                self.updateRequestCount(delta: -1)
                 returnCallback(Result(hardError))
                 return true
             }
 
-            self.updateRequestCount(delta: -1)
             returnCallback(lastResult ?? Result(sqliteCells: [], rows: 0, columns: 0))
             return true
         }
@@ -357,12 +347,13 @@ public class RoverSQLite: Rover {
         var finalError: String?
         var backoff: UInt64 = 500
 
-        updateRequestCount(delta: 1)
+        dateOfLastActivity = Date()
         queue.addOperation(retry: retry) { retryCount in
+            self.dateOfLastActivity = Date()
+            
             self.confirmConnection()
 
             if retryCount == 0 {
-                self.updateRequestCount(delta: -1)
                 returnCallback(Result("SQL retry count exceeded \(statementDebug) [\(finalError ?? "unknown")]"))
                 return true
             }
@@ -380,12 +371,10 @@ public class RoverSQLite: Rover {
             var stmt: OpaquePointer?
             let prepareResult = statement.withCString { sqlite3_prepare_v2(db, $0, -1, &stmt, nil) }
             if prepareResult != SQLITE_OK {
-                self.updateRequestCount(delta: -1)
                 returnCallback(Result(String(cString: sqlite3_errmsg(db))))
                 return true
             }
             guard let stmt = stmt else {
-                self.updateRequestCount(delta: -1)
                 returnCallback(Result(sqliteCells: [], rows: 0, columns: 0))
                 return true
             }
@@ -401,11 +390,9 @@ public class RoverSQLite: Rover {
                 finalError = "database is busy"
                 return false
             case .error(let message):
-                self.updateRequestCount(delta: -1)
                 returnCallback(Result(message))
                 return true
             case .rows(let result):
-                self.updateRequestCount(delta: -1)
                 returnCallback(result)
                 return true
             }
@@ -455,18 +442,18 @@ public class RoverSQLite: Rover {
                                     _ returnCallback: @escaping (String?) -> Void) {
         let (selectSQL, includeHeader) = copyStatementToSelect(statement)
 
-        updateRequestCount(delta: 1)
+        dateOfLastActivity = Date()
         queue.addOperation(retry: 1) { retryCount in
+            self.dateOfLastActivity = Date()
+            
             self.confirmConnection()
 
             if retryCount == 0 {
-                self.updateRequestCount(delta: -1)
                 returnCallback("SQL retry count exceeded \(statement.prefix(64))")
                 return true
             }
 
             guard let db = self.db else {
-                self.updateRequestCount(delta: -1)
                 returnCallback("no database connection")
                 return true
             }
@@ -475,7 +462,6 @@ public class RoverSQLite: Rover {
             // previous attempt can't corrupt the gzip stream.
             try? FileManager.default.removeItem(atPath: toGzipFile)
             guard let outputHandle = SafeFileHandle(forWritingAtPath: toGzipFile) else {
-                self.updateRequestCount(delta: -1)
                 returnCallback("Failed to open file for writing at \(toGzipFile)")
                 return true
             }
@@ -485,7 +471,6 @@ public class RoverSQLite: Rover {
             guard prepareResult == SQLITE_OK, let stmt = stmt else {
                 let message = String(cString: sqlite3_errmsg(db))
                 outputHandle.closeFile()
-                self.updateRequestCount(delta: -1)
                 returnCallback(message.isEmpty ? "Failed to prepare copy statement" : message)
                 return true
             }
@@ -504,7 +489,6 @@ public class RoverSQLite: Rover {
             guard initResult == Z_OK else {
                 sqlite3_finalize(stmt)
                 outputHandle.closeFile()
-                self.updateRequestCount(delta: -1)
                 returnCallback("Failed to initialize gzip compression")
                 return true
             }
@@ -517,7 +501,6 @@ public class RoverSQLite: Rover {
                 compressBuffer.deallocate()
                 sqlite3_finalize(stmt)
                 outputHandle.closeFile()
-                self.updateRequestCount(delta: -1)
                 returnCallback(error)
                 return true
             }

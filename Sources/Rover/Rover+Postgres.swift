@@ -12,7 +12,7 @@ import Hitch
     import zlib
 #endif
 
-let maxBackoff = 999_999_999
+let maxBackoff = 100_000
 
 fileprivate extension String {
     func asBytes() -> UnsafeMutablePointer<Int8> {
@@ -29,10 +29,8 @@ fileprivate extension String {
 public class RoverPostgres: Rover {
     private var debug: Bool = false
     
-    private var outstandingRequestsLock = NSLock()
-    private var outstandingRequestsCount = 0
     override public func unsafeOutstandingRequests() -> Int {
-        return outstandingRequestsCount
+        return queue.count()
     }
     
     private var dateOfLastActivity = Date.distantPast
@@ -40,6 +38,7 @@ public class RoverPostgres: Rover {
         return connectionPtr != nil
     }
 
+    
     private let queue = TimedOperationQueue()
     private var connectionInfo: ConnectionInfo?
     private var connectionPtr: OpaquePointer? = nil
@@ -89,7 +88,7 @@ public class RoverPostgres: Rover {
                                     (allowIdle && abs(dateOfLastActivity.timeIntervalSinceNow) > 60)
         
         if shouldForceReconnect,
-           outstandingRequestsCount == 0,
+           queue.count() == 0,
            connectionPtr != nil {
             if self.debug {
                 print(String(format: "[%0.2f -> %0.2f] SQL force reconnect", abs(start0.timeIntervalSinceNow), abs(Date().timeIntervalSinceNow)))
@@ -152,13 +151,6 @@ public class RoverPostgres: Rover {
                                    _ returnCallback: @escaping (Result) -> Void) {
         safeRun(statement.description, params, returnCallback)
     }
-
-    private func updateRequestCount(delta: Int) {
-        outstandingRequestsLock.lock()
-        outstandingRequestsCount += delta
-        dateOfLastActivity = Date()
-        outstandingRequestsLock.unlock()
-    }
     
     private func internalRun(_ statement: String,
                              _ retry: Int,
@@ -169,12 +161,12 @@ public class RoverPostgres: Rover {
         var finalError: String?
         var backoff: UInt64 = 500
 
-        updateRequestCount(delta: 1)
+        dateOfLastActivity = Date()
         queue.addOperation(retry: retry) { retryCount in
+            self.dateOfLastActivity = Date()
             self.confirmConnection(allowIdle: false)
             
             if retryCount == 0 {
-                self.updateRequestCount(delta: -1)
                 returnCallback(Result("SQL retry count exceeded \(statementDebug) [\(finalError ?? "unknown")]"))
                 return true
             }
@@ -221,7 +213,6 @@ public class RoverPostgres: Rover {
                 return false
             }
             
-            self.updateRequestCount(delta: -1)
             returnCallback(result)
             
             return true
@@ -242,12 +233,13 @@ public class RoverPostgres: Rover {
         var finalError: String?
         var backoff: UInt64 = 500
 
-        updateRequestCount(delta: 1)
+        dateOfLastActivity = Date()
         queue.addOperation(retry: retry) { retryCount in
+            self.dateOfLastActivity = Date()
+            
             self.confirmConnection(allowIdle: false)
 
             if retryCount == 0 {
-                self.updateRequestCount(delta: -1)
                 returnCallback(Result("SQL retry count exceeded \(statementDebug) [\(finalError ?? "unknown")]"))
                 return true
             }
@@ -359,7 +351,6 @@ public class RoverPostgres: Rover {
                 return false
             }
 
-            self.updateRequestCount(delta: -1)
             returnCallback(result)
             return true
         }
@@ -382,12 +373,13 @@ public class RoverPostgres: Rover {
         var finalError: String?
         var backoff: UInt64 = 500
 
-        updateRequestCount(delta: 1)
+        dateOfLastActivity = Date()
         queue.addOperation(retry: 1) { retryCount in
+            self.dateOfLastActivity = Date()
+            
             self.confirmConnection(allowIdle: false)
 
             if retryCount == 0 {
-                self.updateRequestCount(delta: -1)
                 returnCallback("SQL retry count exceeded \(statementDebug) [\(finalError ?? "unknown")]")
                 return true
             }
@@ -396,7 +388,6 @@ public class RoverPostgres: Rover {
             // partial write from a previous retry doesn't corrupt the gzip stream.
             try? FileManager.default.removeItem(atPath: toGzipFile)
             guard let outputHandle = SafeFileHandle(forWritingAtPath: toGzipFile) else {
-                self.updateRequestCount(delta: -1)
                 returnCallback("Failed to open file for writing at \(toGzipFile)")
                 return true
             }
@@ -487,7 +478,6 @@ public class RoverPostgres: Rover {
                 let msg = String(cString: PQresultErrorMessage(execResult))
                 PQclear(execResult)
                 outputHandle.closeFile()
-                self.updateRequestCount(delta: -1)
                 returnCallback(msg.isEmpty ? "Expected PGRES_COPY_OUT but got different status" : msg)
                 return true
             }
@@ -506,7 +496,6 @@ public class RoverPostgres: Rover {
                                            Int32(MemoryLayout<z_stream>.size))
             guard initResult == Z_OK else {
                 outputHandle.closeFile()
-                self.updateRequestCount(delta: -1)
                 returnCallback("Failed to initialize gzip compression")
                 return true
             }
@@ -519,7 +508,6 @@ public class RoverPostgres: Rover {
                 deflateEnd(&stream)
                 compressBuffer.deallocate()
                 outputHandle.closeFile()
-                self.updateRequestCount(delta: -1)
                 returnCallback(error)
                 return true
             }
