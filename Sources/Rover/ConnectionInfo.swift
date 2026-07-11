@@ -18,10 +18,8 @@ public class ConnectionInfoPostgres: ConnectionInfo {
     let port: Int?
     let username: String?
     let password: String?
-    let autoReconnect: Bool
     let busyDelta: Int
     let busyTimer: TimeInterval
-    let reconnectTimer: TimeInterval
     let debug: Bool
 
     public init(database inDatabase: String? = nil,
@@ -29,8 +27,6 @@ public class ConnectionInfoPostgres: ConnectionInfo {
                 port inPort: Int? = nil,
                 username inUsername: String? = nil,
                 password inPassword: String? = nil,
-                autoReconnect inAutoReconnect: Bool = true,
-                reconnectTimer inReconnectTimer: TimeInterval = 10,
                 busyDelta inBusyDelta: Int = 4,
                 busyTimer inBusyTimer: TimeInterval = 10,
                 debug inDebug: Bool = false) {
@@ -39,10 +35,8 @@ public class ConnectionInfoPostgres: ConnectionInfo {
         port = inPort
         username = inUsername
         password = inPassword
-        autoReconnect = inAutoReconnect
         busyDelta = inBusyDelta
         busyTimer = inBusyTimer
-        reconnectTimer = inReconnectTimer
         debug = inDebug
     }
     
