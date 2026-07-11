@@ -88,7 +88,7 @@ public class RoverPostgres: Rover {
                                     (allowIdle && abs(dateOfLastActivity.timeIntervalSinceNow) > 60)
         
         if shouldForceReconnect,
-           queue.count() == 0,
+           queue.waitingCount() == 0,
            connectionPtr != nil {
             if self.debug {
                 print(String(format: "[%0.2f -> %0.2f] SQL force reconnect", abs(start0.timeIntervalSinceNow), abs(Date().timeIntervalSinceNow)))
