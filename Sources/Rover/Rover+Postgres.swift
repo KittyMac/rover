@@ -44,8 +44,7 @@ public class RoverPostgres: Rover {
     private var connectionPtr: OpaquePointer? = nil
     
     private var lastConnectDate: Date = Date.distantPast
-    // reconnect every 10-20 minutes
-    private let forceReconnectTimeInterval: TimeInterval = (20 * 60) * Double.random(in: 0.5...1.0)
+    private let forceReconnectTimeInterval: TimeInterval = (10 * 60) * Double.random(in: 0.5...1.0)
 
     deinit {
         if let connectionPtr = connectionPtr {
