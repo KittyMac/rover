@@ -46,29 +46,31 @@ public class RoverManager: Actor {
 
         unsafePriority = 99
 
-        var didCallFirstConnect = false
-        for _ in 0..<maxConnections {
-            let rover = info.newRover()
-            self.waitingRovers.append(rover)
-            
-            rover.beRegister(info, self) { success in
-                if let idx = self.waitingRovers.firstIndex(of: rover) {
-                    self.waitingRovers.remove(at: idx)
-                }
+        unsafeSend { _ in
+            var didCallFirstConnect = false
+            for _ in 0..<maxConnections {
+                let rover = info.newRover()
+                self.waitingRovers.append(rover)
                 
-                guard success else { return }
-                
-                if let idx = self.rovers.firstIndex(of: rover) {
-                    self.rovers.remove(at: idx)
-                }
-                self.rovers.append(rover)
-                self.connectionsCount = self.rovers.count
-                
-                if didCallFirstConnect == false {
-                    sender.unsafeSend { _ in
-                        onFirstConnect(self)
+                rover.beRegister(info, self) { success in
+                    if let idx = self.waitingRovers.firstIndex(of: rover) {
+                        self.waitingRovers.remove(at: idx)
                     }
-                    didCallFirstConnect = true
+                    
+                    guard success else { return }
+                    
+                    if let idx = self.rovers.firstIndex(of: rover) {
+                        self.rovers.remove(at: idx)
+                    }
+                    self.rovers.append(rover)
+                    self.connectionsCount = self.rovers.count
+                    
+                    if didCallFirstConnect == false {
+                        sender.unsafeSend { _ in
+                            onFirstConnect(self)
+                        }
+                        didCallFirstConnect = true
+                    }
                 }
             }
         }
