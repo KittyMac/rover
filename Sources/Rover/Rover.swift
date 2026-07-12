@@ -39,10 +39,16 @@ public class Rover: Actor {
     
     internal func _beConnect(_ info: ConnectionInfo,
                              _ returnCallback: @escaping (Bool) -> Void) {
-        return safeConnect(info, returnCallback)
+        return safeConnect(info, false, returnCallback)
+    }
+    
+    internal func _beRegister(_ info: ConnectionInfo,
+                             _ returnCallback: @escaping (Bool) -> Void) {
+        return safeConnect(info, true, returnCallback)
     }
     
     internal func safeConnect(_ info: ConnectionInfo,
+                              _ allowIdle: Bool,
                               _ returnCallback: @escaping (Bool) -> Void) {
         fatalError("not overridden by subclass")
     }

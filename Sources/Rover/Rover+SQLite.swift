@@ -105,6 +105,7 @@ public class RoverSQLite: Rover {
     }
 
     override internal func safeConnect(_ info: ConnectionInfo,
+                                       _ allowIdle: Bool,
                                        _ returnCallback: @escaping (Bool) -> Void) {
         guard let info = info as? ConnectionInfoSQLite else {
             fatalError("wrong ConnectionInfo passed to RoverSQLite")

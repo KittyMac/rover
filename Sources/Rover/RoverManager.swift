@@ -51,7 +51,7 @@ public class RoverManager: Actor {
             let rover = info.newRover()
             self.waitingRovers.append(rover)
             
-            rover.beConnect(info, self) { success in
+            rover.beRegister(info, self) { success in
                 if let idx = self.waitingRovers.firstIndex(of: rover) {
                     self.waitingRovers.remove(at: idx)
                 }

@@ -122,6 +122,7 @@ public class RoverPostgres: Rover {
     }
     
     override internal func safeConnect(_ info: ConnectionInfo,
+                                       _ allowIdle: Bool,
                                        _ returnCallback: @escaping (Bool) -> Void) {
         guard let info = info as? ConnectionInfoPostgres else {
             fatalError("wrong ConnectionInfo passed to RoverPostgres")
@@ -131,7 +132,7 @@ public class RoverPostgres: Rover {
         connectionInfo = info
 
         queue.addOperation { _ in
-            self.confirmConnection(allowIdle: false)
+            self.confirmConnection(allowIdle: allowIdle)
             returnCallback(true)
             return true
         }
