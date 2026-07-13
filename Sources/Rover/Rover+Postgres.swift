@@ -89,7 +89,9 @@ public class RoverPostgres: Rover {
         
         if shouldForceReconnect,
            queue.activeCount() <= 1,
-           connectionPtr != nil {
+           connectionPtr != nil,
+           PQtransactionStatus(connectionPtr) != PQTRANS_ACTIVE,
+           PQflush(connectionPtr) == 0 {
             if self.debug {
                 print(String(format: "[%0.2f -> %0.2f] SQL force reconnect", abs(start0.timeIntervalSinceNow), abs(Date().timeIntervalSinceNow)))
             }
