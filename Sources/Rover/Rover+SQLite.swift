@@ -117,7 +117,7 @@ public class RoverSQLite: Rover {
             self.confirmConnection()
             
             if self.db != nil {
-                self.internalRun("PRAGMA journal_mode = WAL;PRAGMA synchronous = NORMAL;PRAGMA cache_size = -64000;PRAGMA busy_timeout = 5000;", 1) { _ in }
+                self.internalRun("PRAGMA journal_mode = WAL;PRAGMA synchronous = NORMAL;PRAGMA cache_size = -8000;PRAGMA busy_timeout = 5000;", 1) { _ in }
             }
             
             returnCallback(self.db != nil)
@@ -148,52 +148,44 @@ public class RoverSQLite: Rover {
         case error(String)
     }
 
-    // Copies a single column value into a freshly allocated, NUL-terminated C
-    // string. SQL NULL is materialized as an empty string to match the Postgres
-    // backend (where PQgetvalue returns "" rather than a null pointer).
-    private static func copyCell(stmt: OpaquePointer, col: Int32) -> UnsafeMutablePointer<CChar> {
-        if sqlite3_column_type(stmt, col) == SQLITE_NULL {
-            let buffer = UnsafeMutablePointer<CChar>.allocate(capacity: 1)
-            buffer[0] = 0
-            return buffer
-        }
-
-        let count = Int(sqlite3_column_bytes(stmt, col))
-        let buffer = UnsafeMutablePointer<CChar>.allocate(capacity: count + 1)
-        if count > 0, let text = sqlite3_column_text(stmt, col) {
-            memcpy(buffer, text, count)
-        }
-        buffer[count] = 0
-        return buffer
-    }
-
     // Steps a prepared statement to completion, gathering every result row into
-    // an in-memory table that backs a Result. The statement is NOT finalized
-    // here; the caller owns finalization.
+    // a single contiguous arena that backs a Result (one heap allocation per
+    // result, not one per cell). The statement is NOT finalized here; the
+    // caller owns finalization.
     private func materialize(stmt: OpaquePointer, db: OpaquePointer) -> StepOutcome {
         let columns = sqlite3_column_count(stmt)
-        var cells: [UnsafeMutablePointer<CChar>?] = []
+        let arena = SQLiteResultArena()
         var rows: Int32 = 0
 
         while true {
             let rc = sqlite3_step(stmt)
             if rc == SQLITE_ROW {
                 for col in 0..<columns {
-                    cells.append(RoverSQLite.copyCell(stmt: stmt, col: col))
+                    if sqlite3_column_type(stmt, col) == SQLITE_NULL {
+                        // SQL NULL is materialized as an empty string to match
+                        // the Postgres backend (where PQgetvalue returns ""
+                        // rather than a null pointer).
+                        arena.appendNullCell()
+                    } else {
+                        // Per the SQLite docs, call sqlite3_column_text() first
+                        // and sqlite3_column_bytes() second, so the byte count
+                        // reflects the UTF-8 text after any type conversion.
+                        let text = sqlite3_column_text(stmt, col)
+                        let count = Int(sqlite3_column_bytes(stmt, col))
+                        arena.append(bytes: text, count: count)
+                    }
                 }
                 rows += 1
             } else if rc == SQLITE_DONE {
                 break
             } else if rc == SQLITE_BUSY || rc == SQLITE_LOCKED {
-                for cell in cells { cell?.deallocate() }
                 return .busy
             } else {
-                for cell in cells { cell?.deallocate() }
                 return .error(String(cString: sqlite3_errmsg(db)))
             }
         }
 
-        return .rows(Result(sqliteCells: cells, rows: rows, columns: columns))
+        return .rows(Result(sqliteArena: arena, rows: rows, columns: columns))
     }
 
     // MARK: - Parameter binding
@@ -321,7 +313,7 @@ public class RoverSQLite: Rover {
                 return true
             }
 
-            returnCallback(lastResult ?? Result(sqliteCells: [], rows: 0, columns: 0))
+            returnCallback(lastResult ?? Result(sqliteArena: SQLiteResultArena(estimatedBytes: 16), rows: 0, columns: 0))
             return true
         }
     }
@@ -376,7 +368,7 @@ public class RoverSQLite: Rover {
                 return true
             }
             guard let stmt = stmt else {
-                returnCallback(Result(sqliteCells: [], rows: 0, columns: 0))
+                returnCallback(Result(sqliteArena: SQLiteResultArena(estimatedBytes: 16), rows: 0, columns: 0))
                 return true
             }
 

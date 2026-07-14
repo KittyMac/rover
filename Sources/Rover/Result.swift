@@ -29,17 +29,89 @@ extension String {
     }
 }
 
+/// Backing store for a SQLite result: every cell value is packed into a single
+/// contiguous, heap-allocated arena as a NUL-terminated UTF-8 string, with a
+/// per-cell offset table alongside it.
+///
+/// This keeps a Result at O(1) heap allocations regardless of row/column count.
+/// The previous implementation performed one allocation per cell; for large
+/// result sets that meant millions of small buffers allocated on the operation
+/// queue thread and freed on an actor thread, which fragments the allocator
+/// (notably glibc malloc on Linux) and shows up as unbounded RSS growth even
+/// though nothing is technically leaked.
+internal final class SQLiteResultArena {
+    private var buffer: UnsafeMutablePointer<UInt8>
+    private var capacity: Int
+    private var used: Int = 0
+    private var offsets: [Int] = []
+
+    init(estimatedBytes: Int = 1024) {
+        capacity = max(16, estimatedBytes)
+        buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: capacity)
+    }
+
+    deinit {
+        buffer.deallocate()
+    }
+
+    var cellCount: Int {
+        return offsets.count
+    }
+
+    private func grow(toFit additional: Int) {
+        guard used + additional > capacity else { return }
+        var newCapacity = capacity * 2
+        while used + additional > newCapacity {
+            newCapacity *= 2
+        }
+        let newBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: newCapacity)
+        memcpy(newBuffer, buffer, used)
+        buffer.deallocate()
+        buffer = newBuffer
+        capacity = newCapacity
+    }
+
+    /// Appends one cell, always NUL-terminated. A nil `bytes` is materialized
+    /// as an empty string; SQL NULL is expected to arrive here as nil/0 so
+    /// that behaviour matches the Postgres backend (where PQgetvalue returns
+    /// "" for a NULL field rather than a null pointer).
+    func append(bytes: UnsafePointer<UInt8>?, count: Int) {
+        let count = max(0, count)
+        grow(toFit: count + 1)
+        offsets.append(used)
+        if count > 0,
+           let bytes = bytes {
+            memcpy(buffer + used, bytes, count)
+        }
+        buffer[used + count] = 0
+        used += count + 1
+    }
+
+    func appendNullCell() {
+        append(bytes: nil, count: 0)
+    }
+
+    /// Pointer to the NUL-terminated string for the given cell index, or nil
+    /// if the index is out of range. The pointer is valid only while this
+    /// arena is alive; the owning Result retains the arena and any HalfHitch
+    /// created from a cell retains the Result, so lifetimes chain correctly.
+    func cell(_ index: Int) -> UnsafePointer<CChar>? {
+        guard index >= 0 && index < offsets.count else { return nil }
+        return UnsafeRawPointer(buffer + offsets[index]).assumingMemoryBound(to: CChar.self)
+    }
+}
+
 public final class Result {
     // Postgres backing: a live PGresult owned by this object.
     private var resultPtr = OpaquePointer(bitPattern: 0)
 
-    // SQLite backing: an in-memory, row-major table of NUL-terminated C strings.
-    // A cell value of `nil` should not occur here -- SQL NULL is materialized as
-    // an empty string so that behaviour matches the Postgres backend (where
-    // PQgetvalue returns "" for a NULL field rather than a null pointer). The
-    // buffers are owned by this object and freed in deinit, which keeps any
-    // HalfHitch created from them (those retain `self`) valid for our lifetime.
-    private var sqliteCells: [UnsafeMutablePointer<CChar>?]?
+    // SQLite backing: an in-memory, row-major table of NUL-terminated C
+    // strings packed into a single contiguous arena (see SQLiteResultArena).
+    // SQL NULL is materialized as an empty string so that behaviour matches
+    // the Postgres backend (where PQgetvalue returns "" rather than a null
+    // pointer). The arena is owned by this object, which keeps any HalfHitch
+    // created from it (those retain `self`) valid for our lifetime.
+    private var sqliteArena: SQLiteResultArena?
     private var sqliteRows: Int32 = 0
     private var sqliteCols: Int32 = 0
 
@@ -75,13 +147,16 @@ public final class Result {
         self.overrideError = error
     }
 
-    /// SQLite-backed result. `cells` is row-major (row * columns + col) and must
-    /// contain exactly `rows * columns` entries. Ownership of every buffer in
-    /// `cells` transfers to this object.
-    init(sqliteCells cells: [UnsafeMutablePointer<CChar>?],
+    /// SQLite-backed result. The arena is row-major (row * columns + col) and
+    /// must contain exactly `rows * columns` cells. Ownership of the arena
+    /// transfers to this object; the arena's buffer is freed when the last
+    /// reference to this Result goes away.
+    init(sqliteArena arena: SQLiteResultArena,
          rows: Int32,
          columns: Int32) {
-        self.sqliteCells = cells
+        assert(arena.cellCount == Int(rows) * Int(columns),
+               "SQLite arena cell count does not match rows * columns")
+        self.sqliteArena = arena
         self.sqliteRows = rows
         self.sqliteCols = columns
         self.overrideError = nil
@@ -92,13 +167,6 @@ public final class Result {
             PQclear(resultPtr)
         }
         resultPtr = OpaquePointer(bitPattern: 0)
-
-        if let sqliteCells = sqliteCells {
-            for cell in sqliteCells {
-                cell?.deallocate()
-            }
-        }
-        sqliteCells = nil
     }
 
     /// Unified cell accessor. Returns a pointer to a NUL-terminated C string for
@@ -110,10 +178,9 @@ public final class Result {
             guard let raw = PQgetvalue(resultPtr, row, col) else { return nil }
             return UnsafePointer(raw)
         }
-        guard let sqliteCells = sqliteCells else { return nil }
+        guard let sqliteArena = sqliteArena else { return nil }
         guard row >= 0, row < sqliteRows, col >= 0, col < sqliteCols else { return nil }
-        guard let cell = sqliteCells[Int(row) * Int(sqliteCols) + Int(col)] else { return nil }
-        return UnsafePointer(cell)
+        return sqliteArena.cell(Int(row) * Int(sqliteCols) + Int(col))
     }
 
     public var error: String? {
@@ -126,7 +193,7 @@ public final class Result {
         }
         // A SQLite-backed result is only ever constructed on success; failures
         // arrive through init(_ error: String).
-        if sqliteCells != nil { return nil }
+        if sqliteArena != nil { return nil }
         return "Invalid result"
     }
 
