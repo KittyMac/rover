@@ -117,8 +117,7 @@ public class RoverSQLite: Rover {
             self.confirmConnection()
             
             if self.db != nil {
-                self.internalRun("PRAGMA journal_mode = DELETE;PRAGMA synchronous = FULL;PRAGMA cache_size = -8000;PRAGMA busy_timeout = 5000;", 1) { _ in }
-                // self.internalRun("PRAGMA journal_mode = WAL;PRAGMA synchronous = NORMAL;PRAGMA cache_size = -8000;PRAGMA busy_timeout = 5000;", 1) { _ in }
+                self.internalRun("PRAGMA journal_mode = WAL;PRAGMA synchronous = NORMAL;PRAGMA cache_size = -8000;PRAGMA busy_timeout = 5000;", 1) { _ in }
             }
             
             returnCallback(self.db != nil)
