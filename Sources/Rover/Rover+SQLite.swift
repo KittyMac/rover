@@ -24,6 +24,17 @@ import Hitch
 // (from withCString) without worrying about their lifetime afterwards.
 fileprivate let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
+// How long SQLite itself will wait on a contended database before handing back
+// SQLITE_BUSY. Deliberately short: the real waiting policy lives in
+// internalRun's retry + backoff ladder, and stacking a multi-second timeout on
+// top of a 100-attempt ladder produces multi-minute stalls that are
+// indistinguishable from a lost callback.
+//
+// This is the ONE place the busy timeout is configured. Do not also set
+// `PRAGMA busy_timeout` on connect, or the two will silently fight and the
+// PRAGMA (running later) will win.
+fileprivate let kBusyTimeoutMilliseconds: Int32 = 1000
+
 public class RoverSQLite: Rover {
     private var debug: Bool = false
 
@@ -83,12 +94,14 @@ public class RoverSQLite: Rover {
         let rc = path.withCString { sqlite3_open_v2($0, &handle, flags, nil) }
 
         if rc == SQLITE_OK, let handle = handle {
-            // Let SQLite wait out transient locks instead of failing immediately;
-            // we still retry on the queue if it eventually times out. The wait is
-            // taken from the connection's busyTimer (seconds), clamped to a sane
-            // floor so a zero/negative value can't disable waiting entirely.
-            let busyMilliseconds = max(1000, Int32(info.busyTimer * 1000))
-            sqlite3_busy_timeout(handle, busyMilliseconds)
+            // Let SQLite absorb only very short lock contention; anything longer
+            // comes back as SQLITE_BUSY and is handled by internalRun's backoff.
+            //
+            // NOTE: info.busyTimer is deliberately NOT used here. That value is
+            // the RoverManager's busy-polling interval (default 10s) and has
+            // nothing to do with lock contention on a single connection; wiring
+            // the two together is what produced ~100 x 5s stalls.
+            sqlite3_busy_timeout(handle, kBusyTimeoutMilliseconds)
             db = handle
             if debug {
                 print("SQL connect: \(info.description)")
@@ -117,8 +130,8 @@ public class RoverSQLite: Rover {
             self.confirmConnection()
             
             if self.db != nil {
-                self.internalRun("PRAGMA journal_mode = DELETE;PRAGMA synchronous = FULL;PRAGMA cache_size = -8000;PRAGMA busy_timeout = 5000;", 1) { _ in }
-                // self.internalRun("PRAGMA journal_mode = WAL;PRAGMA synchronous = NORMAL;PRAGMA cache_size = -8000;PRAGMA busy_timeout = 5000;", 1) { _ in }
+                self.internalRun("PRAGMA journal_mode = DELETE;PRAGMA synchronous = FULL;PRAGMA cache_size = -8000;", 1) { _ in }
+                // self.internalRun("PRAGMA journal_mode = WAL;PRAGMA synchronous = NORMAL;PRAGMA cache_size = -8000;", 1) { _ in }
             }
             
             returnCallback(self.db != nil)
@@ -179,8 +192,18 @@ public class RoverSQLite: Rover {
                 rows += 1
             } else if rc == SQLITE_DONE {
                 break
-            } else if rc == SQLITE_BUSY || rc == SQLITE_LOCKED {
+            } else if rc & 0xFF == SQLITE_BUSY {
+                // Another connection holds a conflicting lock on the file. This
+                // is genuinely transient, so back off and retry.
                 return .busy
+            } else if rc & 0xFF == SQLITE_LOCKED {
+                // A conflicting access inside this same connection (or this same
+                // shared cache). Unlike SQLITE_BUSY it will never clear by
+                // waiting -- no amount of retrying releases a lock we ourselves
+                // hold -- so retrying only burns the budget while occupying the
+                // connection's single operation slot. Fail fast instead.
+                let message = String(cString: sqlite3_errmsg(db))
+                return .error(message.isEmpty ? "database table is locked" : message)
             } else {
                 return .error(String(cString: sqlite3_errmsg(db)))
             }
@@ -279,7 +302,15 @@ public class RoverSQLite: Rover {
                     var stmt: OpaquePointer?
                     let prepareResult = sqlite3_prepare_v2(db, current, -1, &stmt, &tail)
                     if prepareResult != SQLITE_OK {
-                        hardError = String(cString: sqlite3_errmsg(db))
+                        // prepare() can report SQLITE_BUSY in its own right (it
+                        // may need to reload the schema while another connection
+                        // holds a write lock), which is retryable. Everything
+                        // else -- SQLITE_LOCKED included -- is terminal.
+                        if prepareResult & 0xFF == SQLITE_BUSY {
+                            transient = true
+                        } else {
+                            hardError = String(cString: sqlite3_errmsg(db))
+                        }
                         return
                     }
                     guard let stmt = stmt else {
@@ -365,6 +396,13 @@ public class RoverSQLite: Rover {
             var stmt: OpaquePointer?
             let prepareResult = statement.withCString { sqlite3_prepare_v2(db, $0, -1, &stmt, nil) }
             if prepareResult != SQLITE_OK {
+                // See the note in the no-params variant: BUSY here is retryable,
+                // LOCKED and everything else is terminal.
+                if prepareResult & 0xFF == SQLITE_BUSY {
+                    backoff = self.backoffSleep(backoff)
+                    finalError = "database is busy"
+                    return false
+                }
                 returnCallback(Result(String(cString: sqlite3_errmsg(db))))
                 return true
             }
