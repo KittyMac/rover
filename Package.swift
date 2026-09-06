@@ -109,9 +109,9 @@ let package = Package(
         .library( name: "Rover", targets: ["Rover"] ),
     ],
     dependencies: [
-		.package(url: "https://github.com/KittyMac/Flynn.git", .upToNextMinor(from: "0.4.0")),
-        .package(url: "https://github.com/KittyMac/Hitch.git", .upToNextMinor(from: "0.4.0")),
-        .package(url: "https://github.com/KittyMac/Chronometer.git", .upToNextMinor(from: "0.1.0"))
+        .package(url: "https://github.com/KittyMac/Flynn.git", from: "0.5.2"),
+        .package(url: "https://github.com/KittyMac/Hitch.git", from: "0.4.0"),
+        .package(url: "https://github.com/KittyMac/Chronometer.git", from: "0.1.0")
     ],
     targets: targets
 )
