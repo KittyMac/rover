@@ -59,10 +59,12 @@ public class RoverPostgres: Rover {
         queue.maxConcurrentOperationCount = 1
         unsafePriority = 99
         
-        Flynn.Timer(timeInterval: 15, immediate: false, repeats: true, self) { [weak self] timer in
-            self?.queue.addOperation { _ in
-                self?.confirmConnection(allowIdle: true)
-                return true
+        unsafeSend { _ in
+            Flynn.Timer(timeInterval: 15, immediate: false, repeats: true, self) { [weak self] timer in
+                self?.queue.addOperation { _ in
+                    self?.confirmConnection(allowIdle: true)
+                    return true
+                }
             }
         }
     }

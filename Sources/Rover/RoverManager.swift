@@ -75,18 +75,20 @@ public class RoverManager: Actor {
             }
         }
 
-        Flynn.Timer(timeInterval: busyTimer, repeats: true, self) { [weak self] (_) in
-            guard let self = self else { return }
-            guard self.rovers.count > 0 else { return }
-            
-            var notBusyRovers = 0
-            for rover in self.rovers {
-                if rover.unsafeOutstandingRequests() < self.busyDelta {
-                    notBusyRovers += 1
+        unsafeSend { _ in
+            Flynn.Timer(timeInterval: self.busyTimer, repeats: true, self) { [weak self] (_) in
+                guard let self = self else { return }
+                guard self.rovers.count > 0 else { return }
+                
+                var notBusyRovers = 0
+                for rover in self.rovers {
+                    if rover.unsafeOutstandingRequests() < self.busyDelta {
+                        notBusyRovers += 1
+                    }
                 }
+                
+                self.unsafeBusy = notBusyRovers == 0
             }
-            
-            self.unsafeBusy = notBusyRovers == 0
         }
     }
     

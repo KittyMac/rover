@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/KittyMac/Flynn.git",
       "state" : {
-        "revision" : "363afb96c58a52e7cb61129247ae05b2e1fe8b74",
-        "version" : "0.5.2"
+        "revision" : "237bae233d806b84d9254321bc0b735334b45145",
+        "version" : "0.5.3"
       }
     },
     {
